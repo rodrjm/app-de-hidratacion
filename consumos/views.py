@@ -2,10 +2,13 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.generics import ListAPIView
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Avg, Max, Min
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncHour
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime, date
+from collections import defaultdict
 from .models import Consumo, Recipiente, Bebida, MetaDiaria, Recordatorio
 from .serializers import (
     ConsumoSerializer, ConsumoCreateSerializer, RecipienteSerializer,
@@ -13,7 +16,9 @@ from .serializers import (
     RecordatorioCreateSerializer, MetaFijaSerializer, RecordatorioStatsSerializer,
     SubscriptionStatusSerializer, PremiumFeaturesSerializer, UsageLimitsSerializer,
     MonetizationStatsSerializer, PremiumGoalSerializer, PremiumBeverageSerializer,
-    PremiumReminderSerializer, PremiumReminderCreateSerializer
+    PremiumReminderSerializer, PremiumReminderCreateSerializer, ConsumoHistorySerializer,
+    ConsumoSummarySerializer, ConsumoDailySummarySerializer, ConsumoWeeklySummarySerializer,
+    ConsumoMonthlySummarySerializer, ConsumoTrendSerializer, ConsumoInsightsSerializer
 )
 from .permissions import IsPremiumUser, IsOwnerOrPremium, IsPremiumOrReadOnly
 
@@ -1335,3 +1340,610 @@ class PremiumReminderViewSet(viewsets.ModelViewSet):
             recordatorios_por_tipo[tipo_recordatorio].append(serializer.data)
         
         return Response(recordatorios_por_tipo)
+
+
+class ConsumoHistoryView(ListAPIView):
+    """
+    Vista para obtener el historial detallado de consumos.
+    Solo accesible para usuarios premium.
+    """
+    serializer_class = ConsumoHistorySerializer
+    permission_classes = [IsAuthenticated, IsPremiumUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filterset_fields = ['bebida', 'nivel_sed', 'estado_animo']
+    search_fields = ['notas', 'ubicacion', 'bebida__nombre']
+    ordering_fields = ['fecha_hora', 'cantidad_ml', 'cantidad_hidratacion_efectiva']
+    ordering = ['-fecha_hora']
+
+    def get_queryset(self):
+        """
+        Filtra los consumos del usuario autenticado.
+        """
+        queryset = Consumo.objects.filter(usuario=self.request.user)
+        
+        # Filtro por rango de fechas
+        fecha_inicio = self.request.query_params.get('fecha_inicio')
+        fecha_fin = self.request.query_params.get('fecha_fin')
+        
+        if fecha_inicio:
+            try:
+                fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                queryset = queryset.filter(fecha_hora__date__gte=fecha_inicio_obj)
+            except ValueError:
+                pass
+        
+        if fecha_fin:
+            try:
+                fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+                queryset = queryset.filter(fecha_hora__date__lte=fecha_fin_obj)
+            except ValueError:
+                pass
+        
+        return queryset.select_related('bebida', 'recipiente', 'usuario')
+
+
+class ConsumoSummaryView(APIView):
+    """
+    Vista para obtener estadísticas agregadas de consumos.
+    Solo accesible para usuarios premium.
+    """
+    permission_classes = [IsAuthenticated, IsPremiumUser]
+
+    def get(self, request):
+        """
+        Retorna estadísticas agregadas según el periodo solicitado.
+        """
+        period = request.query_params.get('period', 'daily')
+        
+        # Obtener rango de fechas
+        fecha_inicio = request.query_params.get('fecha_inicio')
+        fecha_fin = request.query_params.get('fecha_fin')
+        
+        if not fecha_inicio:
+            fecha_inicio = (timezone.now() - timedelta(days=30)).date()
+        else:
+            try:
+                fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_inicio = (timezone.now() - timedelta(days=30)).date()
+        
+        if not fecha_fin:
+            fecha_fin = timezone.now().date()
+        else:
+            try:
+                fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_fin = timezone.now().date()
+        
+        # Filtrar consumos del usuario en el rango de fechas
+        consumos = Consumo.objects.filter(
+            usuario=request.user,
+            fecha_hora__date__range=[fecha_inicio, fecha_fin]
+        ).select_related('bebida')
+        
+        if period == 'daily':
+            return self._get_daily_summary(consumos, fecha_inicio, fecha_fin)
+        elif period == 'weekly':
+            return self._get_weekly_summary(consumos, fecha_inicio, fecha_fin)
+        elif period == 'monthly':
+            return self._get_monthly_summary(consumos, fecha_inicio, fecha_fin)
+        else:
+            return Response({
+                'error': 'Periodo no válido. Use: daily, weekly, o monthly'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _get_daily_summary(self, consumos, fecha_inicio, fecha_fin):
+        """
+        Genera resumen diario de consumos.
+        """
+        # Agregar por día
+        daily_data = consumos.annotate(
+            fecha=TruncDay('fecha_hora')
+        ).values('fecha').annotate(
+            total_ml=Sum('cantidad_ml'),
+            total_hidratacion=Sum('cantidad_hidratacion_efectiva'),
+            cantidad_consumos=Count('id'),
+            bebida_mas_consumida=Max('bebida__nombre')
+        ).order_by('fecha')
+        
+        # Obtener meta del usuario
+        meta_ml = request.user.meta_diaria_ml
+        
+        # Procesar datos diarios
+        daily_summaries = []
+        for item in daily_data:
+            fecha = item['fecha'].date()
+            
+            # Obtener consumos por hora para este día
+            consumos_dia = consumos.filter(fecha_hora__date=fecha)
+            consumos_por_hora = []
+            
+            for hora in range(24):
+                consumos_hora = consumos_dia.filter(fecha_hora__hour=hora)
+                total_hora = consumos_hora.aggregate(total=Sum('cantidad_ml'))['total'] or 0
+                consumos_por_hora.append({
+                    'hora': hora,
+                    'total_ml': total_hora,
+                    'cantidad_consumos': consumos_hora.count()
+                })
+            
+            progreso_porcentaje = (item['total_hidratacion'] / meta_ml * 100) if meta_ml > 0 else 0
+            completada = item['total_hidratacion'] >= meta_ml
+            
+            daily_summaries.append({
+                'fecha': fecha,
+                'total_ml': item['total_ml'] or 0,
+                'total_hidratacion_efectiva_ml': item['total_hidratacion'] or 0,
+                'cantidad_consumos': item['cantidad_consumos'],
+                'meta_ml': meta_ml,
+                'progreso_porcentaje': min(progreso_porcentaje, 100),
+                'completada': completada,
+                'consumos_por_hora': consumos_por_hora
+            })
+        
+        serializer = ConsumoDailySummarySerializer(daily_summaries, many=True)
+        return Response(serializer.data)
+    
+    def _get_weekly_summary(self, consumos, fecha_inicio, fecha_fin):
+        """
+        Genera resumen semanal de consumos.
+        """
+        # Agregar por semana
+        weekly_data = consumos.annotate(
+            semana=TruncWeek('fecha_hora')
+        ).values('semana').annotate(
+            total_ml=Sum('cantidad_ml'),
+            total_hidratacion=Sum('cantidad_hidratacion_efectiva'),
+            cantidad_consumos=Count('id')
+        ).order_by('semana')
+        
+        # Procesar datos semanales
+        weekly_summaries = []
+        for item in weekly_data:
+            semana_inicio = item['semana'].date()
+            semana_fin = semana_inicio + timedelta(days=6)
+            
+            # Obtener detalle por día de la semana
+            dias_detalle = []
+            for i in range(7):
+                dia = semana_inicio + timedelta(days=i)
+                consumos_dia = consumos.filter(fecha_hora__date=dia)
+                
+                total_dia = consumos_dia.aggregate(total=Sum('cantidad_ml'))['total'] or 0
+                hidratacion_dia = consumos_dia.aggregate(total=Sum('cantidad_hidratacion_efectiva'))['total'] or 0
+                
+                dias_detalle.append({
+                    'fecha': dia,
+                    'total_ml': total_dia,
+                    'total_hidratacion_ml': hidratacion_dia,
+                    'cantidad_consumos': consumos_dia.count()
+                })
+            
+            dias_completados = sum(1 for dia in dias_detalle if dia['total_ml'] > 0)
+            eficiencia_hidratacion = (item['total_hidratacion'] / item['total_ml'] * 100) if item['total_ml'] > 0 else 0
+            
+            weekly_summaries.append({
+                'semana_inicio': semana_inicio,
+                'semana_fin': semana_fin,
+                'total_ml': item['total_ml'] or 0,
+                'total_hidratacion_efectiva_ml': item['total_hidratacion'] or 0,
+                'cantidad_consumos': item['cantidad_consumos'],
+                'promedio_diario_ml': (item['total_ml'] or 0) / 7,
+                'dias_completados': dias_completados,
+                'dias_totales': 7,
+                'eficiencia_hidratacion': eficiencia_hidratacion,
+                'dias_detalle': dias_detalle
+            })
+        
+        serializer = ConsumoWeeklySummarySerializer(weekly_summaries, many=True)
+        return Response(serializer.data)
+    
+    def _get_monthly_summary(self, consumos, fecha_inicio, fecha_fin):
+        """
+        Genera resumen mensual de consumos.
+        """
+        # Agregar por mes
+        monthly_data = consumos.annotate(
+            mes=TruncMonth('fecha_hora')
+        ).values('mes').annotate(
+            total_ml=Sum('cantidad_ml'),
+            total_hidratacion=Sum('cantidad_hidratacion_efectiva'),
+            cantidad_consumos=Count('id')
+        ).order_by('mes')
+        
+        # Procesar datos mensuales
+        monthly_summaries = []
+        for item in monthly_data:
+            mes_fecha = item['mes'].date()
+            mes_nombre = mes_fecha.strftime('%B')
+            año = mes_fecha.year
+            
+            # Obtener detalle por semana del mes
+            semanas_detalle = []
+            inicio_mes = mes_fecha.replace(day=1)
+            fin_mes = (inicio_mes + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            
+            # Dividir el mes en semanas
+            current_date = inicio_mes
+            semana_num = 1
+            while current_date <= fin_mes:
+                semana_fin = min(current_date + timedelta(days=6), fin_mes)
+                
+                consumos_semana = consumos.filter(
+                    fecha_hora__date__range=[current_date, semana_fin]
+                )
+                
+                total_semana = consumos_semana.aggregate(total=Sum('cantidad_ml'))['total'] or 0
+                hidratacion_semana = consumos_semana.aggregate(total=Sum('cantidad_hidratacion_efectiva'))['total'] or 0
+                
+                semanas_detalle.append({
+                    'semana': semana_num,
+                    'inicio': current_date,
+                    'fin': semana_fin,
+                    'total_ml': total_semana,
+                    'total_hidratacion_ml': hidratacion_semana,
+                    'cantidad_consumos': consumos_semana.count()
+                })
+                
+                current_date = semana_fin + timedelta(days=1)
+                semana_num += 1
+            
+            # Calcular días activos
+            dias_activos = consumos.values('fecha_hora__date').distinct().count()
+            dias_totales = (fin_mes - inicio_mes).days + 1
+            
+            # Calcular tendencia (comparar con mes anterior)
+            mes_anterior = inicio_mes - timedelta(days=1)
+            mes_anterior_inicio = mes_anterior.replace(day=1)
+            consumos_mes_anterior = Consumo.objects.filter(
+                usuario=request.user,
+                fecha_hora__date__range=[mes_anterior_inicio, mes_anterior]
+            ).aggregate(total=Sum('cantidad_ml'))['total'] or 0
+            
+            if consumos_mes_anterior > 0:
+                cambio_porcentaje = ((item['total_ml'] or 0) - consumos_mes_anterior) / consumos_mes_anterior * 100
+                if cambio_porcentaje > 5:
+                    tendencia = "Aumento"
+                elif cambio_porcentaje < -5:
+                    tendencia = "Disminución"
+                else:
+                    tendencia = "Estable"
+            else:
+                tendencia = "Nuevo"
+            
+            eficiencia_hidratacion = (item['total_hidratacion'] / item['total_ml'] * 100) if item['total_ml'] > 0 else 0
+            
+            monthly_summaries.append({
+                'mes': mes_nombre,
+                'año': año,
+                'total_ml': item['total_ml'] or 0,
+                'total_hidratacion_efectiva_ml': item['total_hidratacion'] or 0,
+                'cantidad_consumos': item['cantidad_consumos'],
+                'promedio_diario_ml': (item['total_ml'] or 0) / dias_totales,
+                'dias_activos': dias_activos,
+                'dias_totales': dias_totales,
+                'eficiencia_hidratacion': eficiencia_hidratacion,
+                'tendencia': tendencia,
+                'semanas_detalle': semanas_detalle
+            })
+        
+        serializer = ConsumoMonthlySummarySerializer(monthly_summaries, many=True)
+        return Response(serializer.data)
+
+
+class ConsumoTrendsView(APIView):
+    """
+    Vista para obtener tendencias de consumo.
+    Solo accesible para usuarios premium.
+    """
+    permission_classes = [IsAuthenticated, IsPremiumUser]
+
+    def get(self, request):
+        """
+        Retorna tendencias de consumo del usuario.
+        """
+        period = request.query_params.get('period', 'weekly')
+        
+        # Obtener datos del periodo actual
+        if period == 'weekly':
+            fecha_fin = timezone.now().date()
+            fecha_inicio = fecha_fin - timedelta(days=7)
+        elif period == 'monthly':
+            fecha_fin = timezone.now().date()
+            fecha_inicio = fecha_fin - timedelta(days=30)
+        else:
+            return Response({
+                'error': 'Periodo no válido. Use: weekly o monthly'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Obtener datos del periodo anterior
+        duracion = fecha_fin - fecha_inicio
+        fecha_inicio_anterior = fecha_inicio - duracion
+        fecha_fin_anterior = fecha_inicio
+        
+        # Consumos del periodo actual
+        consumos_actual = Consumo.objects.filter(
+            usuario=request.user,
+            fecha_hora__date__range=[fecha_inicio, fecha_fin]
+        )
+        
+        # Consumos del periodo anterior
+        consumos_anterior = Consumo.objects.filter(
+            usuario=request.user,
+            fecha_hora__date__range=[fecha_inicio_anterior, fecha_fin_anterior]
+        )
+        
+        # Calcular totales
+        total_actual = consumos_actual.aggregate(total=Sum('cantidad_ml'))['total'] or 0
+        total_anterior = consumos_anterior.aggregate(total=Sum('cantidad_ml'))['total'] or 0
+        
+        # Calcular promedios
+        dias_actual = (fecha_fin - fecha_inicio).days + 1
+        dias_anterior = (fecha_fin_anterior - fecha_inicio_anterior).days + 1
+        
+        promedio_actual = total_actual / dias_actual if dias_actual > 0 else 0
+        promedio_anterior = total_anterior / dias_anterior if dias_anterior > 0 else 0
+        
+        # Calcular cambios
+        cambio_ml = total_actual - total_anterior
+        cambio_porcentaje = (cambio_ml / total_anterior * 100) if total_anterior > 0 else 0
+        
+        # Determinar tendencia
+        if cambio_porcentaje > 10:
+            tendencia = "Aumento significativo"
+        elif cambio_porcentaje > 5:
+            tendencia = "Aumento moderado"
+        elif cambio_porcentaje > -5:
+            tendencia = "Estable"
+        elif cambio_porcentaje > -10:
+            tendencia = "Disminución moderada"
+        else:
+            tendencia = "Disminución significativa"
+        
+        # Generar recomendaciones
+        recomendaciones = []
+        if cambio_porcentaje < -10:
+            recomendaciones.append("Tu consumo ha disminuido significativamente. Considera aumentar gradualmente tu hidratación.")
+        elif cambio_porcentaje > 10:
+            recomendaciones.append("¡Excelente! Tu consumo ha aumentado considerablemente. Mantén este ritmo.")
+        elif promedio_actual < 1500:
+            recomendaciones.append("Tu consumo promedio está por debajo de lo recomendado. Intenta beber más agua.")
+        elif promedio_actual > 3000:
+            recomendaciones.append("Tu consumo es muy alto. Asegúrate de que sea saludable y distribuido durante el día.")
+        
+        data = {
+            'periodo': period,
+            'tendencia': tendencia,
+            'cambio_porcentaje': round(cambio_porcentaje, 2),
+            'cambio_ml': cambio_ml,
+            'promedio_anterior': round(promedio_anterior, 2),
+            'promedio_actual': round(promedio_actual, 2),
+            'recomendaciones': recomendaciones
+        }
+        
+        serializer = ConsumoTrendSerializer(data)
+        return Response(serializer.data)
+
+
+class ConsumoInsightsView(APIView):
+    """
+    Vista para obtener insights y análisis avanzados de consumos.
+    Solo accesible para usuarios premium.
+    """
+    permission_classes = [IsAuthenticated, IsPremiumUser]
+
+    def get(self, request):
+        """
+        Retorna insights y análisis de consumos del usuario.
+        """
+        # Obtener rango de fechas (últimos 30 días por defecto)
+        fecha_fin = timezone.now().date()
+        fecha_inicio = fecha_fin - timedelta(days=30)
+        
+        # Filtrar consumos
+        consumos = Consumo.objects.filter(
+            usuario=request.user,
+            fecha_hora__date__range=[fecha_inicio, fecha_fin]
+        ).select_related('bebida')
+        
+        # Estadísticas básicas
+        total_consumos = consumos.count()
+        total_ml = consumos.aggregate(total=Sum('cantidad_ml'))['total'] or 0
+        total_hidratacion = consumos.aggregate(total=Sum('cantidad_hidratacion_efectiva'))['total'] or 0
+        
+        # Análisis de patrones
+        patrones = self._analyze_patterns(consumos)
+        
+        # Insights
+        insights = self._generate_insights(consumos, total_ml, total_hidratacion)
+        
+        # Recomendaciones
+        recomendaciones = self._generate_recommendations(consumos, total_ml, total_hidratacion)
+        
+        # Estadísticas avanzadas
+        estadisticas_avanzadas = self._calculate_advanced_stats(consumos)
+        
+        data = {
+            'total_consumos': total_consumos,
+            'total_ml': total_ml,
+            'total_hidratacion_efectiva_ml': total_hidratacion,
+            'periodo_analisis': f"{fecha_inicio} a {fecha_fin}",
+            'insights': insights,
+            'patrones': patrones,
+            'recomendaciones': recomendaciones,
+            'estadisticas_avanzadas': estadisticas_avanzadas
+        }
+        
+        serializer = ConsumoInsightsSerializer(data)
+        return Response(serializer.data)
+    
+    def _analyze_patterns(self, consumos):
+        """
+        Analiza patrones en los consumos.
+        """
+        patrones = []
+        
+        # Patrón por horas
+        consumos_por_hora = defaultdict(int)
+        for consumo in consumos:
+            hora = consumo.fecha_hora.hour
+            consumos_por_hora[hora] += consumo.cantidad_ml
+        
+        hora_pico = max(consumos_por_hora.items(), key=lambda x: x[1])[0]
+        patrones.append({
+            'tipo': 'hora_pico',
+            'descripcion': f'Tu hora de mayor consumo es las {hora_pico}:00',
+            'valor': hora_pico,
+            'unidad': 'hora'
+        })
+        
+        # Patrón por días de la semana
+        consumos_por_dia = defaultdict(int)
+        for consumo in consumos:
+            dia_semana = consumo.fecha_hora.weekday()
+            consumos_por_dia[dia_semana] += consumo.cantidad_ml
+        
+        dias_nombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+        dia_pico = max(consumos_por_dia.items(), key=lambda x: x[1])[0]
+        patrones.append({
+            'tipo': 'dia_pico',
+            'descripcion': f'Tu día de mayor consumo es el {dias_nombres[dia_pico]}',
+            'valor': dia_pico,
+            'unidad': 'dia_semana'
+        })
+        
+        # Patrón por bebidas
+        bebidas_stats = consumos.values('bebida__nombre').annotate(
+            total_ml=Sum('cantidad_ml'),
+            veces=Count('id')
+        ).order_by('-total_ml')[:3]
+        
+        if bebidas_stats:
+            bebida_favorita = bebidas_stats[0]
+            patrones.append({
+                'tipo': 'bebida_favorita',
+                'descripcion': f'Tu bebida favorita es {bebida_favorita["bebida__nombre"]}',
+                'valor': bebida_favorita['bebida__nombre'],
+                'unidad': 'bebida'
+            })
+        
+        return patrones
+    
+    def _generate_insights(self, consumos, total_ml, total_hidratacion):
+        """
+        Genera insights basados en los datos de consumo.
+        """
+        insights = []
+        
+        # Insight de consistencia
+        dias_con_consumo = consumos.values('fecha_hora__date').distinct().count()
+        dias_totales = 30  # Últimos 30 días
+        consistencia = (dias_con_consumo / dias_totales) * 100
+        
+        if consistencia >= 80:
+            insights.append({
+                'tipo': 'consistencia',
+                'titulo': 'Excelente consistencia',
+                'descripcion': f'Has registrado consumos en el {consistencia:.1f}% de los días',
+                'nivel': 'positivo'
+            })
+        elif consistencia >= 60:
+            insights.append({
+                'tipo': 'consistencia',
+                'titulo': 'Buena consistencia',
+                'descripcion': f'Has registrado consumos en el {consistencia:.1f}% de los días',
+                'nivel': 'neutral'
+            })
+        else:
+            insights.append({
+                'tipo': 'consistencia',
+                'titulo': 'Consistencia mejorable',
+                'descripcion': f'Has registrado consumos en el {consistencia:.1f}% de los días',
+                'nivel': 'negativo'
+            })
+        
+        # Insight de eficiencia de hidratación
+        eficiencia = (total_hidratacion / total_ml * 100) if total_ml > 0 else 0
+        
+        if eficiencia >= 90:
+            insights.append({
+                'tipo': 'eficiencia',
+                'titulo': 'Excelente eficiencia de hidratación',
+                'descripcion': f'Tu eficiencia de hidratación es del {eficiencia:.1f}%',
+                'nivel': 'positivo'
+            })
+        elif eficiencia >= 70:
+            insights.append({
+                'tipo': 'eficiencia',
+                'titulo': 'Buena eficiencia de hidratación',
+                'descripcion': f'Tu eficiencia de hidratación es del {eficiencia:.1f}%',
+                'nivel': 'neutral'
+            })
+        else:
+            insights.append({
+                'tipo': 'eficiencia',
+                'titulo': 'Eficiencia de hidratación mejorable',
+                'descripcion': f'Tu eficiencia de hidratación es del {eficiencia:.1f}%',
+                'nivel': 'negativo'
+            })
+        
+        return insights
+    
+    def _generate_recommendations(self, consumos, total_ml, total_hidratacion):
+        """
+        Genera recomendaciones basadas en los datos de consumo.
+        """
+        recomendaciones = []
+        
+        # Recomendación basada en cantidad total
+        promedio_diario = total_ml / 30  # Últimos 30 días
+        
+        if promedio_diario < 1500:
+            recomendaciones.append("Considera aumentar tu consumo diario de agua para alcanzar la recomendación de 2L diarios")
+        elif promedio_diario > 4000:
+            recomendaciones.append("Tu consumo es muy alto. Asegúrate de que sea saludable y consulta con un profesional si es necesario")
+        
+        # Recomendación basada en eficiencia
+        eficiencia = (total_hidratacion / total_ml * 100) if total_ml > 0 else 0
+        
+        if eficiencia < 70:
+            recomendaciones.append("Intenta beber más agua pura para mejorar tu eficiencia de hidratación")
+        
+        # Recomendación basada en consistencia
+        dias_con_consumo = consumos.values('fecha_hora__date').distinct().count()
+        if dias_con_consumo < 20:
+            recomendaciones.append("Intenta ser más consistente registrando tus consumos diariamente")
+        
+        return recomendaciones
+    
+    def _calculate_advanced_stats(self, consumos):
+        """
+        Calcula estadísticas avanzadas de los consumos.
+        """
+        stats = {}
+        
+        # Estadísticas de cantidad
+        stats['cantidad'] = {
+            'promedio_ml': consumos.aggregate(avg=Avg('cantidad_ml'))['avg'] or 0,
+            'maximo_ml': consumos.aggregate(max=Max('cantidad_ml'))['max'] or 0,
+            'minimo_ml': consumos.aggregate(min=Min('cantidad_ml'))['min'] or 0,
+            'total_consumos': consumos.count()
+        }
+        
+        # Estadísticas de hidratación
+        stats['hidratacion'] = {
+            'promedio_hidratacion_ml': consumos.aggregate(avg=Avg('cantidad_hidratacion_efectiva'))['avg'] or 0,
+            'eficiencia_promedio': (consumos.aggregate(avg=Avg('cantidad_hidratacion_efectiva'))['avg'] or 0) / 
+                                 (consumos.aggregate(avg=Avg('cantidad_ml'))['avg'] or 1) * 100
+        }
+        
+        # Estadísticas por bebida
+        bebidas_stats = consumos.values('bebida__nombre').annotate(
+            total_ml=Sum('cantidad_ml'),
+            veces=Count('id'),
+            promedio_ml=Avg('cantidad_ml')
+        ).order_by('-total_ml')
+        
+        stats['bebidas'] = list(bebidas_stats)
+        
+        return stats

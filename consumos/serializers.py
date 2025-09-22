@@ -770,3 +770,148 @@ class PremiumReminderCreateSerializer(serializers.ModelSerializer):
         """Crea el recordatorio asignando el usuario."""
         validated_data['usuario'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class BebidaInfoSerializer(serializers.ModelSerializer):
+    """
+    Serializer para incluir información básica de la bebida en el historial.
+    """
+    class Meta:
+        model = Bebida
+        fields = ['id', 'nombre', 'factor_hidratacion', 'es_agua', 'es_premium']
+
+
+class ConsumoHistorySerializer(serializers.ModelSerializer):
+    """
+    Serializer para el historial detallado de consumos.
+    """
+    bebida = BebidaInfoSerializer(read_only=True)
+    recipiente_nombre = serializers.CharField(source='recipiente.nombre', read_only=True)
+    hidratacion_efectiva_ml = serializers.SerializerMethodField()
+    fecha_formateada = serializers.SerializerMethodField()
+    hora_formateada = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Consumo
+        fields = [
+            'id', 'cantidad_ml', 'bebida', 'recipiente_nombre',
+            'hidratacion_efectiva_ml', 'fecha_hora', 'fecha_formateada',
+            'hora_formateada', 'nivel_sed', 'estado_animo', 'notas',
+            'ubicacion', 'fecha_creacion'
+        ]
+    
+    def get_hidratacion_efectiva_ml(self, obj):
+        """Retorna la hidratación efectiva en ml."""
+        return obj.cantidad_hidratacion_efectiva
+    
+    def get_fecha_formateada(self, obj):
+        """Retorna la fecha formateada."""
+        return obj.fecha_hora.strftime('%Y-%m-%d')
+    
+    def get_hora_formateada(self, obj):
+        """Retorna la hora formateada."""
+        return obj.fecha_hora.strftime('%H:%M')
+
+
+class ConsumoSummarySerializer(serializers.Serializer):
+    """
+    Serializer para estadísticas agregadas de consumos.
+    """
+    periodo = serializers.CharField()
+    fecha_inicio = serializers.DateField()
+    fecha_fin = serializers.DateField()
+    total_ml = serializers.IntegerField()
+    total_hidratacion_efectiva_ml = serializers.IntegerField()
+    cantidad_consumos = serializers.IntegerField()
+    promedio_diario_ml = serializers.FloatField()
+    bebida_mas_consumida = serializers.CharField()
+    factor_hidratacion_promedio = serializers.FloatField()
+    progreso_meta = serializers.FloatField()
+
+
+class ConsumoDailySummarySerializer(serializers.Serializer):
+    """
+    Serializer para resumen diario de consumos.
+    """
+    fecha = serializers.DateField()
+    total_ml = serializers.IntegerField()
+    total_hidratacion_efectiva_ml = serializers.IntegerField()
+    cantidad_consumos = serializers.IntegerField()
+    meta_ml = serializers.IntegerField()
+    progreso_porcentaje = serializers.FloatField()
+    completada = serializers.BooleanField()
+    consumos_por_hora = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+
+class ConsumoWeeklySummarySerializer(serializers.Serializer):
+    """
+    Serializer para resumen semanal de consumos.
+    """
+    semana_inicio = serializers.DateField()
+    semana_fin = serializers.DateField()
+    total_ml = serializers.IntegerField()
+    total_hidratacion_efectiva_ml = serializers.IntegerField()
+    cantidad_consumos = serializers.IntegerField()
+    promedio_diario_ml = serializers.FloatField()
+    dias_completados = serializers.IntegerField()
+    dias_totales = serializers.IntegerField()
+    eficiencia_hidratacion = serializers.FloatField()
+    dias_detalle = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+
+class ConsumoMonthlySummarySerializer(serializers.Serializer):
+    """
+    Serializer para resumen mensual de consumos.
+    """
+    mes = serializers.CharField()
+    año = serializers.IntegerField()
+    total_ml = serializers.IntegerField()
+    total_hidratacion_efectiva_ml = serializers.IntegerField()
+    cantidad_consumos = serializers.IntegerField()
+    promedio_diario_ml = serializers.FloatField()
+    dias_activos = serializers.IntegerField()
+    dias_totales = serializers.IntegerField()
+    eficiencia_hidratacion = serializers.FloatField()
+    tendencia = serializers.CharField()
+    semanas_detalle = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+
+class ConsumoTrendSerializer(serializers.Serializer):
+    """
+    Serializer para tendencias de consumo.
+    """
+    periodo = serializers.CharField()
+    tendencia = serializers.CharField()
+    cambio_porcentaje = serializers.FloatField()
+    cambio_ml = serializers.IntegerField()
+    promedio_anterior = serializers.FloatField()
+    promedio_actual = serializers.FloatField()
+    recomendaciones = serializers.ListField(
+        child=serializers.CharField()
+    )
+
+
+class ConsumoInsightsSerializer(serializers.Serializer):
+    """
+    Serializer para insights y análisis de consumos.
+    """
+    total_consumos = serializers.IntegerField()
+    total_ml = serializers.IntegerField()
+    total_hidratacion_efectiva_ml = serializers.IntegerField()
+    periodo_analisis = serializers.CharField()
+    insights = serializers.ListField(
+        child=serializers.DictField()
+    )
+    patrones = serializers.ListField(
+        child=serializers.DictField()
+    )
+    recomendaciones = serializers.ListField(
+        child=serializers.CharField()
+    )
+    estadisticas_avanzadas = serializers.DictField()
