@@ -12,8 +12,10 @@ from .serializers import (
     BebidaSerializer, MetaDiariaSerializer, RecordatorioSerializer,
     RecordatorioCreateSerializer, MetaFijaSerializer, RecordatorioStatsSerializer,
     SubscriptionStatusSerializer, PremiumFeaturesSerializer, UsageLimitsSerializer,
-    MonetizationStatsSerializer
+    MonetizationStatsSerializer, PremiumGoalSerializer, PremiumBeverageSerializer,
+    PremiumReminderSerializer, PremiumReminderCreateSerializer
 )
+from .permissions import IsPremiumUser, IsOwnerOrPremium, IsPremiumOrReadOnly
 
 
 class ConsumoViewSet(viewsets.ModelViewSet):
@@ -1006,3 +1008,330 @@ class UpgradePromptView(APIView):
         }
         
         return Response(data)
+
+
+class PremiumGoalView(APIView):
+    """
+    Vista para calcular la meta personalizada premium.
+    Solo accesible para usuarios premium.
+    """
+    permission_classes = [IsAuthenticated, IsPremiumUser]
+
+    def get(self, request):
+        """
+        Calcula la meta personalizada de hidratación para el usuario premium.
+        """
+        user = request.user
+        
+        # Obtener datos del usuario
+        peso_kg = user.peso
+        nivel_actividad = getattr(user, 'nivel_actividad', 'baja')
+        
+        # Factores de actividad
+        factores_actividad = {
+            'baja': 1.0,
+            'moderada': 1.2,
+            'alta': 1.5,
+            'muy_alta': 1.8
+        }
+        
+        factor_actividad = factores_actividad.get(nivel_actividad, 1.0)
+        
+        # Fórmula de cálculo: (peso_en_kg * 0.033) * factor_actividad
+        meta_recomendada_ml = int((peso_kg * 0.033) * factor_actividad * 1000)  # Convertir a ml
+        
+        # Obtener meta actual del usuario
+        meta_actual_ml = user.meta_diaria_ml
+        
+        # Calcular diferencia
+        diferencia_ml = meta_recomendada_ml - meta_actual_ml
+        
+        # Generar recomendaciones
+        recomendaciones = []
+        
+        if diferencia_ml > 0:
+            recomendaciones.append(f"Tu meta actual es {diferencia_ml}ml menor que la recomendada.")
+            recomendaciones.append("Considera aumentar gradualmente tu meta diaria.")
+        elif diferencia_ml < 0:
+            recomendaciones.append(f"Tu meta actual es {abs(diferencia_ml)}ml mayor que la recomendada.")
+            recomendaciones.append("Tu meta actual es excelente para tu nivel de actividad.")
+        else:
+            recomendaciones.append("Tu meta actual coincide perfectamente con la recomendación.")
+        
+        # Recomendaciones adicionales basadas en el nivel de actividad
+        if nivel_actividad == 'baja':
+            recomendaciones.append("Para aumentar tu nivel de actividad, considera caminar más o hacer ejercicio ligero.")
+        elif nivel_actividad == 'alta':
+            recomendaciones.append("Con tu alto nivel de actividad, asegúrate de hidratarte antes, durante y después del ejercicio.")
+        
+        # Recomendaciones basadas en el peso
+        if peso_kg < 60:
+            recomendaciones.append("Con tu peso, la hidratación es especialmente importante para mantener el equilibrio.")
+        elif peso_kg > 100:
+            recomendaciones.append("Con tu peso, necesitas más hidratación para mantener un buen funcionamiento corporal.")
+        
+        data = {
+            'meta_recomendada_ml': meta_recomendada_ml,
+            'meta_actual_ml': meta_actual_ml,
+            'diferencia_ml': diferencia_ml,
+            'factor_actividad': factor_actividad,
+            'peso_usuario': peso_kg,
+            'nivel_actividad': nivel_actividad,
+            'formula_usada': f'(peso_kg * 0.033) * factor_actividad = ({peso_kg} * 0.033) * {factor_actividad}',
+            'recomendaciones': recomendaciones,
+            'fecha_calculo': timezone.now()
+        }
+        
+        serializer = PremiumGoalSerializer(data)
+        return Response(serializer.data)
+
+
+class PremiumBeverageListView(APIView):
+    """
+    Vista para listar todas las bebidas (gratuitas y premium).
+    Solo accesible para usuarios premium.
+    """
+    permission_classes = [IsAuthenticated, IsPremiumUser]
+
+    def get(self, request):
+        """
+        Retorna todas las bebidas disponibles para usuarios premium.
+        """
+        # Obtener todas las bebidas activas
+        bebidas = Bebida.objects.filter(activa=True).order_by('es_premium', 'nombre')
+        
+        # Filtrar por categoría si se especifica
+        categoria = request.query_params.get('categoria')
+        if categoria:
+            if categoria == 'premium':
+                bebidas = bebidas.filter(es_premium=True)
+            elif categoria == 'gratuitas':
+                bebidas = bebidas.filter(es_premium=False)
+            elif categoria == 'agua':
+                bebidas = bebidas.filter(es_agua=True)
+            elif categoria == 'hidratantes':
+                bebidas = bebidas.filter(factor_hidratacion__gte=0.8)
+        
+        # Filtrar por factor de hidratación
+        factor_min = request.query_params.get('factor_min')
+        if factor_min:
+            try:
+                factor_min = float(factor_min)
+                bebidas = bebidas.filter(factor_hidratacion__gte=factor_min)
+            except ValueError:
+                pass
+        
+        # Búsqueda por nombre
+        search = request.query_params.get('search')
+        if search:
+            bebidas = bebidas.filter(nombre__icontains=search)
+        
+        serializer = PremiumBeverageSerializer(bebidas, many=True, context={'request': request})
+        
+        # Agrupar por categoría para la respuesta
+        bebidas_por_categoria = {}
+        for bebida in serializer.data:
+            categoria = bebida['categoria']
+            if categoria not in bebidas_por_categoria:
+                bebidas_por_categoria[categoria] = []
+            bebidas_por_categoria[categoria].append(bebida)
+        
+        return Response({
+            'bebidas': serializer.data,
+            'total_bebidas': len(serializer.data),
+            'bebidas_por_categoria': bebidas_por_categoria,
+            'categorias_disponibles': list(bebidas_por_categoria.keys())
+        })
+
+
+class PremiumReminderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar recordatorios premium (sin límites).
+    Solo accesible para usuarios premium.
+    """
+    permission_classes = [IsAuthenticated, IsPremiumUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filterset_fields = ['activo', 'tipo_recordatorio', 'frecuencia']
+    search_fields = ['mensaje']
+    ordering_fields = ['hora', 'fecha_creacion']
+    ordering = ['hora']
+
+    def get_serializer_class(self):
+        """
+        Retorna el serializer apropiado según la acción.
+        """
+        if self.action == 'create':
+            return PremiumReminderCreateSerializer
+        return PremiumReminderSerializer
+
+    def get_queryset(self):
+        """
+        Filtra los recordatorios del usuario autenticado.
+        """
+        return Recordatorio.objects.filter(usuario=self.request.user)
+
+    def perform_create(self, serializer):
+        """
+        Asigna el usuario autenticado al crear un recordatorio.
+        """
+        serializer.save(usuario=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        """
+        Alterna el estado activo de un recordatorio.
+        """
+        recordatorio = self.get_object()
+        recordatorio.activo = not recordatorio.activo
+        recordatorio.save(update_fields=['activo'])
+        
+        serializer = self.get_serializer(recordatorio)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def activos(self, request):
+        """
+        Retorna solo los recordatorios activos.
+        """
+        activos = self.get_queryset().filter(activo=True)
+        serializer = self.get_serializer(activos, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def proximos(self, request):
+        """
+        Retorna los próximos recordatorios programados.
+        """
+        from datetime import datetime, timedelta
+        
+        # Obtener próximos 7 días
+        hoy = timezone.now().date()
+        proximos_dias = [hoy + timedelta(days=i) for i in range(7)]
+        
+        recordatorios_proximos = []
+        
+        for recordatorio in self.get_queryset().filter(activo=True):
+            proximo_envio = recordatorio.get_proximo_envio()
+            if proximo_envio and proximo_envio.date() in proximos_dias:
+                recordatorios_proximos.append({
+                    'id': recordatorio.id,
+                    'hora': recordatorio.hora,
+                    'mensaje': recordatorio.get_mensaje_completo(),
+                    'tipo_recordatorio': recordatorio.tipo_recordatorio,
+                    'proximo_envio': proximo_envio.isoformat(),
+                    'dias_semana': recordatorio.dias_semana
+                })
+        
+        # Ordenar por próximo envío
+        recordatorios_proximos.sort(key=lambda x: x['proximo_envio'])
+        
+        return Response(recordatorios_proximos)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """
+        Retorna estadísticas de recordatorios del usuario premium.
+        """
+        queryset = self.get_queryset()
+        
+        # Contar totales
+        total_recordatorios = queryset.count()
+        recordatorios_activos = queryset.filter(activo=True).count()
+        recordatorios_inactivos = total_recordatorios - recordatorios_activos
+        
+        # Próximos recordatorios
+        proximos = []
+        for recordatorio in queryset.filter(activo=True)[:10]:  # Más recordatorios para premium
+            proximo_envio = recordatorio.get_proximo_envio()
+            if proximo_envio:
+                proximos.append({
+                    'id': recordatorio.id,
+                    'hora': recordatorio.hora,
+                    'mensaje': recordatorio.get_mensaje_completo(),
+                    'proximo_envio': proximo_envio.isoformat()
+                })
+        
+        # Agrupar por tipo
+        recordatorios_por_tipo = {}
+        for tipo, _ in Recordatorio._meta.get_field('tipo_recordatorio').choices:
+            count = queryset.filter(tipo_recordatorio=tipo).count()
+            if count > 0:
+                recordatorios_por_tipo[tipo] = count
+        
+        # Agrupar por frecuencia
+        recordatorios_por_frecuencia = {}
+        for frecuencia, _ in Recordatorio._meta.get_field('frecuencia').choices:
+            count = queryset.filter(frecuencia=frecuencia).count()
+            if count > 0:
+                recordatorios_por_frecuencia[frecuencia] = count
+        
+        data = {
+            'total_recordatorios': total_recordatorios,
+            'recordatorios_activos': recordatorios_activos,
+            'recordatorios_inactivos': recordatorios_inactivos,
+            'proximos_recordatorios': proximos,
+            'recordatorios_por_tipo': recordatorios_por_tipo,
+            'recordatorios_por_frecuencia': recordatorios_por_frecuencia,
+            'es_premium': True,
+            'limite_recordatorios': 'Ilimitado'
+        }
+        
+        return Response(data)
+
+    @action(detail=True, methods=['post'])
+    def marcar_enviado(self, request, pk=None):
+        """
+        Marca un recordatorio como enviado.
+        """
+        recordatorio = self.get_object()
+        recordatorio.marcar_enviado()
+        
+        serializer = self.get_serializer(recordatorio)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def crear_rapido(self, request):
+        """
+        Crea un recordatorio rápido con configuración mínima.
+        """
+        data = request.data.copy()
+        
+        # Valores por defecto
+        if 'tipo_recordatorio' not in data:
+            data['tipo_recordatorio'] = 'agua'
+        if 'frecuencia' not in data:
+            data['frecuencia'] = 'diario'
+        if 'dias_semana' not in data:
+            data['dias_semana'] = list(range(7))  # Todos los días
+        
+        serializer = PremiumReminderCreateSerializer(data=data, context={'request': request})
+        
+        if serializer.is_valid():
+            recordatorio = serializer.save()
+            response_serializer = PremiumReminderSerializer(recordatorio)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'])
+    def por_tipo(self, request):
+        """
+        Retorna recordatorios agrupados por tipo.
+        """
+        tipo = request.query_params.get('tipo')
+        if tipo:
+            recordatorios = self.get_queryset().filter(tipo_recordatorio=tipo)
+        else:
+            recordatorios = self.get_queryset()
+        
+        # Agrupar por tipo
+        recordatorios_por_tipo = {}
+        for recordatorio in recordatorios:
+            tipo_recordatorio = recordatorio.tipo_recordatorio
+            if tipo_recordatorio not in recordatorios_por_tipo:
+                recordatorios_por_tipo[tipo_recordatorio] = []
+            
+            serializer = self.get_serializer(recordatorio)
+            recordatorios_por_tipo[tipo_recordatorio].append(serializer.data)
+        
+        return Response(recordatorios_por_tipo)

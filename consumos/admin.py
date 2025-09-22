@@ -4,8 +4,8 @@ from .models import Bebida, Recipiente, Consumo, MetaDiaria, Recordatorio
 
 @admin.register(Bebida)
 class BebidaAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'factor_hidratacion', 'es_agua', 'calorias_por_ml', 'activa']
-    list_filter = ['es_agua', 'activa', 'factor_hidratacion']
+    list_display = ['nombre', 'factor_hidratacion', 'es_agua', 'es_premium', 'calorias_por_ml', 'activa']
+    list_filter = ['es_agua', 'es_premium', 'activa', 'factor_hidratacion']
     search_fields = ['nombre', 'descripcion']
     ordering = ['nombre']
 

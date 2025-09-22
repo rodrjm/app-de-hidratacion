@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ConsumoViewSet, RecipienteViewSet, BebidaViewSet, MetaDiariaViewSet,
     MetaFijaView, RecordatorioViewSet, SubscriptionStatusView, PremiumFeaturesView,
-    UsageLimitsView, MonetizationStatsView, UpgradePromptView
+    UsageLimitsView, MonetizationStatsView, UpgradePromptView, PremiumGoalView,
+    PremiumBeverageListView, PremiumReminderViewSet
 )
 
 app_name = 'consumos'
@@ -15,6 +16,8 @@ router.register(r'recipientes', RecipienteViewSet, basename='recipiente')
 router.register(r'bebidas', BebidaViewSet, basename='bebida')
 router.register(r'metas-diarias', MetaDiariaViewSet, basename='meta-diaria')
 router.register(r'recordatorios', RecordatorioViewSet, basename='recordatorio')
+# Router para funcionalidades premium
+router.register(r'premium/reminders', PremiumReminderViewSet, basename='premium-reminder')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -26,4 +29,7 @@ urlpatterns = [
     path('monetization/limits/', UsageLimitsView.as_view(), name='usage-limits'),
     path('monetization/stats/', MonetizationStatsView.as_view(), name='monetization-stats'),
     path('monetization/upgrade/', UpgradePromptView.as_view(), name='upgrade-prompt'),
+    # API Premium
+    path('premium/goal/', PremiumGoalView.as_view(), name='premium-goal'),
+    path('premium/beverages/', PremiumBeverageListView.as_view(), name='premium-beverages'),
 ]

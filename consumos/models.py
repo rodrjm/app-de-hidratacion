@@ -43,6 +43,11 @@ class Bebida(models.Model):
         verbose_name='Activa',
         help_text='Indica si la bebida está disponible para seleccionar'
     )
+    es_premium = models.BooleanField(
+        default=False,
+        verbose_name='Es Premium',
+        help_text='Indica si la bebida es exclusiva para usuarios premium'
+    )
     fecha_creacion = models.DateTimeField(
         auto_now_add=True,
         verbose_name='Fecha de creación'
