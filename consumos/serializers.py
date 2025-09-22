@@ -507,3 +507,68 @@ class RecordatorioStatsSerializer(serializers.Serializer):
     )
     recordatorios_por_tipo = serializers.DictField()
     recordatorios_por_frecuencia = serializers.DictField()
+
+
+class SubscriptionStatusSerializer(serializers.Serializer):
+    """
+    Serializer para el estado de suscripción del usuario.
+    """
+    is_premium = serializers.BooleanField()
+    subscription_type = serializers.CharField()
+    subscription_end_date = serializers.DateTimeField(allow_null=True)
+    days_remaining = serializers.IntegerField(allow_null=True)
+    features_available = serializers.ListField(
+        child=serializers.CharField()
+    )
+    limitations = serializers.DictField()
+    upgrade_required = serializers.BooleanField()
+
+
+class PremiumFeatureSerializer(serializers.Serializer):
+    """
+    Serializer para una funcionalidad premium.
+    """
+    id = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    icon = serializers.CharField()
+    category = serializers.CharField()
+    is_available = serializers.BooleanField()
+
+
+class PremiumFeaturesSerializer(serializers.Serializer):
+    """
+    Serializer para la lista de funcionalidades premium.
+    """
+    features = serializers.ListField(
+        child=PremiumFeatureSerializer()
+    )
+    total_features = serializers.IntegerField()
+    categories = serializers.ListField(
+        child=serializers.CharField()
+    )
+
+
+class UsageLimitsSerializer(serializers.Serializer):
+    """
+    Serializer para los límites de uso del usuario.
+    """
+    recordatorios = serializers.DictField()
+    consumos_diarios = serializers.DictField()
+    estadisticas_avanzadas = serializers.DictField()
+    exportacion_datos = serializers.DictField()
+    personalizacion = serializers.DictField()
+
+
+class MonetizationStatsSerializer(serializers.Serializer):
+    """
+    Serializer para estadísticas de monetización.
+    """
+    usuarios_totales = serializers.IntegerField()
+    usuarios_premium = serializers.IntegerField()
+    usuarios_gratuitos = serializers.IntegerField()
+    conversion_rate = serializers.FloatField()
+    ingresos_mensuales = serializers.DecimalField(max_digits=10, decimal_places=2)
+    funcionalidades_mas_usadas = serializers.ListField(
+        child=serializers.DictField()
+    )

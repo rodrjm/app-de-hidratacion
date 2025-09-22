@@ -10,7 +10,9 @@ from .models import Consumo, Recipiente, Bebida, MetaDiaria, Recordatorio
 from .serializers import (
     ConsumoSerializer, ConsumoCreateSerializer, RecipienteSerializer,
     BebidaSerializer, MetaDiariaSerializer, RecordatorioSerializer,
-    RecordatorioCreateSerializer, MetaFijaSerializer, RecordatorioStatsSerializer
+    RecordatorioCreateSerializer, MetaFijaSerializer, RecordatorioStatsSerializer,
+    SubscriptionStatusSerializer, PremiumFeaturesSerializer, UsageLimitsSerializer,
+    MonetizationStatsSerializer
 )
 
 
@@ -627,3 +629,380 @@ class RecordatorioViewSet(viewsets.ModelViewSet):
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SubscriptionStatusView(APIView):
+    """
+    Vista para obtener el estado de suscripción del usuario.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retorna el estado de suscripción del usuario autenticado.
+        """
+        from django.conf import settings
+        
+        user = request.user
+        is_premium = user.es_premium
+        
+        # Determinar tipo de suscripción
+        if is_premium:
+            subscription_type = "premium"
+            subscription_end_date = None  # Por ahora no hay fecha de expiración
+            days_remaining = None
+        else:
+            subscription_type = "gratuito"
+            subscription_end_date = None
+            days_remaining = None
+        
+        # Funcionalidades disponibles según el plan
+        if is_premium:
+            features_available = [
+                "Meta diaria personalizada",
+                "Estadísticas y análisis avanzados",
+                "Recordatorios ilimitados",
+                "Sin anuncios",
+                "Exportación de datos",
+                "Temas personalizados",
+                "Sincronización en la nube",
+                "Soporte prioritario"
+            ]
+        else:
+            features_available = [
+                "Meta diaria fija",
+                "Estadísticas básicas",
+                "Recordatorios limitados (3 máximo)",
+                "Tema estándar"
+            ]
+        
+        # Límites según el plan
+        if is_premium:
+            limitations = {
+                "recordatorios_max": settings.META_MAX_RECORDATORIOS_PREMIUM,
+                "consumos_diarios_max": 1000,
+                "estadisticas_avanzadas": True,
+                "exportacion_datos": True,
+                "personalizacion_completa": True,
+                "anuncios": False
+            }
+        else:
+            limitations = {
+                "recordatorios_max": settings.META_MAX_RECORDATORIOS_GRATUITOS,
+                "consumos_diarios_max": 50,
+                "estadisticas_avanzadas": False,
+                "exportacion_datos": False,
+                "personalizacion_completa": False,
+                "anuncios": True
+            }
+        
+        # Determinar si necesita upgrade
+        upgrade_required = not is_premium
+        
+        data = {
+            'is_premium': is_premium,
+            'subscription_type': subscription_type,
+            'subscription_end_date': subscription_end_date,
+            'days_remaining': days_remaining,
+            'features_available': features_available,
+            'limitations': limitations,
+            'upgrade_required': upgrade_required
+        }
+        
+        serializer = SubscriptionStatusSerializer(data)
+        return Response(serializer.data)
+
+
+class PremiumFeaturesView(APIView):
+    """
+    Vista para obtener la lista de funcionalidades premium.
+    No requiere autenticación para que sea visible para todos.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        """
+        Retorna la lista de funcionalidades premium disponibles.
+        """
+        features = [
+            {
+                "id": "meta_personalizada",
+                "name": "Meta Diaria Personalizada",
+                "description": "Calcula tu meta de hidratación basada en tu peso, edad y nivel de actividad",
+                "icon": "target",
+                "category": "Personalización",
+                "is_available": True
+            },
+            {
+                "id": "estadisticas_avanzadas",
+                "name": "Estadísticas y Análisis Avanzados",
+                "description": "Gráficos detallados, tendencias y análisis de tu progreso de hidratación",
+                "icon": "chart-line",
+                "category": "Análisis",
+                "is_available": True
+            },
+            {
+                "id": "recordatorios_ilimitados",
+                "name": "Recordatorios Ilimitados",
+                "description": "Crea tantos recordatorios como necesites para mantenerte hidratado",
+                "icon": "bell",
+                "category": "Recordatorios",
+                "is_available": True
+            },
+            {
+                "id": "sin_anuncios",
+                "name": "Sin Anuncios",
+                "description": "Disfruta de la aplicación sin interrupciones publicitarias",
+                "icon": "ad",
+                "category": "Experiencia",
+                "is_available": True
+            },
+            {
+                "id": "exportacion_datos",
+                "name": "Exportación de Datos",
+                "description": "Exporta tus datos de hidratación en formato CSV o PDF",
+                "icon": "download",
+                "category": "Datos",
+                "is_available": True
+            },
+            {
+                "id": "temas_personalizados",
+                "name": "Temas Personalizados",
+                "description": "Personaliza la apariencia de la aplicación con diferentes temas",
+                "icon": "palette",
+                "category": "Personalización",
+                "is_available": True
+            },
+            {
+                "id": "sincronizacion_nube",
+                "name": "Sincronización en la Nube",
+                "description": "Sincroniza tus datos entre todos tus dispositivos",
+                "icon": "cloud",
+                "category": "Sincronización",
+                "is_available": True
+            },
+            {
+                "id": "soporte_prioritario",
+                "name": "Soporte Prioritario",
+                "description": "Recibe soporte técnico prioritario y respuesta rápida",
+                "icon": "headset",
+                "category": "Soporte",
+                "is_available": True
+            },
+            {
+                "id": "analisis_tendencias",
+                "name": "Análisis de Tendencias",
+                "description": "Identifica patrones en tu hidratación y recibe recomendaciones",
+                "icon": "trending-up",
+                "category": "Análisis",
+                "is_available": True
+            },
+            {
+                "id": "recordatorios_inteligentes",
+                "name": "Recordatorios Inteligentes",
+                "description": "Recordatorios que se adaptan a tu rutina y patrones de hidratación",
+                "icon": "brain",
+                "category": "Recordatorios",
+                "is_available": True
+            }
+        ]
+        
+        # Obtener categorías únicas
+        categories = list(set(feature["category"] for feature in features))
+        categories.sort()
+        
+        data = {
+            'features': features,
+            'total_features': len(features),
+            'categories': categories
+        }
+        
+        serializer = PremiumFeaturesSerializer(data)
+        return Response(serializer.data)
+
+
+class UsageLimitsView(APIView):
+    """
+    Vista para obtener los límites de uso del usuario.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retorna los límites de uso actuales del usuario.
+        """
+        from django.conf import settings
+        
+        user = request.user
+        is_premium = user.es_premium
+        
+        # Obtener uso actual
+        recordatorios_actuales = Recordatorio.objects.filter(usuario=user).count()
+        consumos_hoy = Consumo.objects.filter(
+            usuario=user,
+            fecha_hora__date=timezone.now().date()
+        ).count()
+        
+        if is_premium:
+            recordatorios_max = settings.META_MAX_RECORDATORIOS_PREMIUM
+            consumos_max = 1000
+        else:
+            recordatorios_max = settings.META_MAX_RECORDATORIOS_GRATUITOS
+            consumos_max = 50
+        
+        data = {
+            'recordatorios': {
+                'actual': recordatorios_actuales,
+                'maximo': recordatorios_max,
+                'porcentaje': (recordatorios_actuales / recordatorios_max * 100) if recordatorios_max > 0 else 0,
+                'restantes': max(0, recordatorios_max - recordatorios_actuales)
+            },
+            'consumos_diarios': {
+                'actual': consumos_hoy,
+                'maximo': consumos_max,
+                'porcentaje': (consumos_hoy / consumos_max * 100) if consumos_max > 0 else 0,
+                'restantes': max(0, consumos_max - consumos_hoy)
+            },
+            'estadisticas_avanzadas': {
+                'disponible': is_premium,
+                'descripcion': "Gráficos detallados y análisis avanzados" if is_premium else "Solo disponible en versión premium"
+            },
+            'exportacion_datos': {
+                'disponible': is_premium,
+                'descripcion': "Exporta tus datos en CSV/PDF" if is_premium else "Solo disponible en versión premium"
+            },
+            'personalizacion': {
+                'disponible': is_premium,
+                'descripcion': "Temas y personalización completa" if is_premium else "Solo disponible en versión premium"
+            }
+        }
+        
+        serializer = UsageLimitsSerializer(data)
+        return Response(serializer.data)
+
+
+class MonetizationStatsView(APIView):
+    """
+    Vista para obtener estadísticas de monetización (solo para administradores).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retorna estadísticas de monetización del sistema.
+        """
+        from django.contrib.auth import get_user_model
+        from decimal import Decimal
+        
+        # Solo administradores pueden ver estas estadísticas
+        if not request.user.is_staff:
+            return Response({
+                'error': 'No tienes permisos para ver estas estadísticas'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        User = get_user_model()
+        
+        # Calcular estadísticas
+        usuarios_totales = User.objects.count()
+        usuarios_premium = User.objects.filter(es_premium=True).count()
+        usuarios_gratuitos = usuarios_totales - usuarios_premium
+        
+        conversion_rate = (usuarios_premium / usuarios_totales * 100) if usuarios_totales > 0 else 0
+        
+        # Simular ingresos mensuales (esto debería venir de un sistema de pagos real)
+        ingresos_mensuales = Decimal('0.00')  # Placeholder
+        
+        # Funcionalidades más usadas (simulado)
+        funcionalidades_mas_usadas = [
+            {'nombre': 'Recordatorios', 'uso': 85, 'premium': False},
+            {'nombre': 'Estadísticas Básicas', 'uso': 70, 'premium': False},
+            {'nombre': 'Meta Personalizada', 'uso': 45, 'premium': True},
+            {'nombre': 'Exportación de Datos', 'uso': 30, 'premium': True},
+            {'nombre': 'Temas Personalizados', 'uso': 25, 'premium': True}
+        ]
+        
+        data = {
+            'usuarios_totales': usuarios_totales,
+            'usuarios_premium': usuarios_premium,
+            'usuarios_gratuitos': usuarios_gratuitos,
+            'conversion_rate': round(conversion_rate, 2),
+            'ingresos_mensuales': ingresos_mensuales,
+            'funcionalidades_mas_usadas': funcionalidades_mas_usadas
+        }
+        
+        serializer = MonetizationStatsSerializer(data)
+        return Response(serializer.data)
+
+
+class UpgradePromptView(APIView):
+    """
+    Vista para mostrar información de upgrade al usuario.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retorna información personalizada de upgrade para el usuario.
+        """
+        user = request.user
+        
+        if user.es_premium:
+            return Response({
+                'message': 'Ya tienes una suscripción premium activa',
+                'is_premium': True
+            })
+        
+        # Obtener uso actual para personalizar el mensaje
+        recordatorios_actuales = Recordatorio.objects.filter(usuario=user).count()
+        consumos_este_mes = Consumo.objects.filter(
+            usuario=user,
+            fecha_hora__date__gte=timezone.now().date() - timedelta(days=30)
+        ).count()
+        
+        # Determinar qué funcionalidades le interesarían más
+        recomendaciones = []
+        
+        if recordatorios_actuales >= 2:  # Cerca del límite
+            recomendaciones.append({
+                'funcionalidad': 'Recordatorios Ilimitados',
+                'descripcion': f'Actualmente tienes {recordatorios_actuales} recordatorios. Con Premium puedes crear ilimitados.',
+                'icon': 'bell'
+            })
+        
+        if consumos_este_mes > 20:
+            recomendaciones.append({
+                'funcionalidad': 'Estadísticas Avanzadas',
+                'descripcion': 'Con tantos registros, las estadísticas avanzadas te ayudarían a analizar tu progreso.',
+                'icon': 'chart-line'
+            })
+        
+        # Recomendaciones por defecto si no hay patrones específicos
+        if not recomendaciones:
+            recomendaciones = [
+                {
+                    'funcionalidad': 'Meta Personalizada',
+                    'descripcion': 'Calcula tu meta ideal basada en tu perfil personal.',
+                    'icon': 'target'
+                },
+                {
+                    'funcionalidad': 'Sin Anuncios',
+                    'descripcion': 'Disfruta de la aplicación sin interrupciones.',
+                    'icon': 'ad'
+                }
+            ]
+        
+        data = {
+            'is_premium': False,
+            'recomendaciones': recomendaciones,
+            'beneficios_principales': [
+                'Meta diaria personalizada',
+                'Recordatorios ilimitados',
+                'Estadísticas avanzadas',
+                'Sin anuncios'
+            ],
+            'precio_mensual': 4.99,
+            'precio_anual': 49.99,
+            'ahorro_anual': 10.89
+        }
+        
+        return Response(data)
