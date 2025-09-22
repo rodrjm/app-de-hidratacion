@@ -1947,3 +1947,18 @@ class ConsumoInsightsView(APIView):
         stats['bebidas'] = list(bebidas_stats)
         
         return stats
+
+
+class NoAdsView(APIView):
+    """
+    Vista para verificar si el usuario debe ver anuncios.
+    Endpoint simple y rápido para el frontend.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        """
+        Retorna el estado premium del usuario para lógica de anuncios.
+        """
+        is_premium = request.user.es_premium
+        return Response({'is_premium': is_premium})

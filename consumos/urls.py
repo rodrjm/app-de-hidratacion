@@ -5,7 +5,7 @@ from .views import (
     MetaFijaView, RecordatorioViewSet, SubscriptionStatusView, PremiumFeaturesView,
     UsageLimitsView, MonetizationStatsView, UpgradePromptView, PremiumGoalView,
     PremiumBeverageListView, PremiumReminderViewSet, ConsumoHistoryView,
-    ConsumoSummaryView, ConsumoTrendsView, ConsumoInsightsView
+    ConsumoSummaryView, ConsumoTrendsView, ConsumoInsightsView, NoAdsView
 )
 
 app_name = 'consumos'
@@ -30,6 +30,7 @@ urlpatterns = [
     path('monetization/limits/', UsageLimitsView.as_view(), name='usage-limits'),
     path('monetization/stats/', MonetizationStatsView.as_view(), name='monetization-stats'),
     path('monetization/upgrade/', UpgradePromptView.as_view(), name='upgrade-prompt'),
+    path('monetization/no-ads/', NoAdsView.as_view(), name='no-ads'),
     # API Premium
     path('premium/goal/', PremiumGoalView.as_view(), name='premium-goal'),
     path('premium/beverages/', PremiumBeverageListView.as_view(), name='premium-beverages'),
