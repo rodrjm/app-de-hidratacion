@@ -177,6 +177,11 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Configuración de metas de hidratación
+META_FIJA_ML = config('META_FIJA_ML', default=2000, cast=int)
+META_MAX_RECORDATORIOS_GRATUITOS = config('META_MAX_RECORDATORIOS_GRATUITOS', default=3, cast=int)
+META_MAX_RECORDATORIOS_PREMIUM = config('META_MAX_RECORDATORIOS_PREMIUM', default=10, cast=int)
+
 # Logging
 LOGGING = {
     'version': 1,

@@ -323,3 +323,174 @@ class MetaDiaria(models.Model):
         self.save(update_fields=[
             'consumido_ml', 'hidratacion_efectiva_ml', 'completada', 'fecha_actualizacion'
         ])
+
+
+class Recordatorio(models.Model):
+    """
+    Modelo para recordatorios de hidratación del usuario.
+    """
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='recordatorios',
+        verbose_name='Usuario'
+    )
+    hora = models.TimeField(
+        verbose_name='Hora del recordatorio',
+        help_text='Hora del día para el recordatorio (HH:MM)'
+    )
+    mensaje = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='Mensaje personalizado',
+        help_text='Mensaje opcional para el recordatorio'
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name='Activo',
+        help_text='Indica si el recordatorio está activo'
+    )
+    dias_semana = models.JSONField(
+        default=list,
+        verbose_name='Días de la semana',
+        help_text='Lista de días de la semana (0=Lunes, 6=Domingo)'
+    )
+    tipo_recordatorio = models.CharField(
+        max_length=20,
+        choices=[
+            ('agua', 'Recordatorio de agua'),
+            ('meta', 'Recordatorio de meta'),
+            ('personalizado', 'Recordatorio personalizado'),
+        ],
+        default='agua',
+        verbose_name='Tipo de recordatorio',
+        help_text='Tipo de recordatorio'
+    )
+    frecuencia = models.CharField(
+        max_length=20,
+        choices=[
+            ('diario', 'Diario'),
+            ('dias_laborales', 'Días laborales'),
+            ('fines_semana', 'Fines de semana'),
+            ('personalizado', 'Personalizado'),
+        ],
+        default='diario',
+        verbose_name='Frecuencia',
+        help_text='Frecuencia del recordatorio'
+    )
+    sonido = models.CharField(
+        max_length=50,
+        default='default',
+        verbose_name='Sonido',
+        help_text='Sonido del recordatorio'
+    )
+    vibracion = models.BooleanField(
+        default=True,
+        verbose_name='Vibración',
+        help_text='Activar vibración en el recordatorio'
+    )
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de creación'
+    )
+    fecha_actualizacion = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Fecha de actualización'
+    )
+    ultimo_enviado = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Último enviado',
+        help_text='Fecha y hora del último envío del recordatorio'
+    )
+
+    class Meta:
+        verbose_name = 'Recordatorio'
+        verbose_name_plural = 'Recordatorios'
+        ordering = ['hora']
+        unique_together = ['usuario', 'hora', 'tipo_recordatorio']
+
+    def __str__(self):
+        return f"{self.usuario.username} - {self.hora} ({self.tipo_recordatorio})"
+
+    def get_dias_semana_display(self):
+        """
+        Retorna los días de la semana en formato legible.
+        """
+        dias_nombres = [
+            'Lunes', 'Martes', 'Miércoles', 'Jueves', 
+            'Viernes', 'Sábado', 'Domingo'
+        ]
+        if not self.dias_semana:
+            return 'Todos los días'
+        
+        dias_seleccionados = [dias_nombres[dia] for dia in self.dias_semana if 0 <= dia <= 6]
+        return ', '.join(dias_seleccionados)
+
+    def es_dia_valido(self, fecha=None):
+        """
+        Verifica si el recordatorio debe activarse en la fecha dada.
+        """
+        from django.utils import timezone
+        
+        if fecha is None:
+            fecha = timezone.now().date()
+        
+        # Si no hay días específicos, es válido todos los días
+        if not self.dias_semana:
+            return True
+        
+        # Obtener el día de la semana (0=Lunes, 6=Domingo)
+        dia_semana = fecha.weekday()
+        
+        return dia_semana in self.dias_semana
+
+    def get_proximo_envio(self):
+        """
+        Calcula el próximo envío del recordatorio.
+        """
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+        
+        ahora = timezone.now()
+        hoy = ahora.date()
+        
+        # Crear datetime con la hora del recordatorio para hoy
+        proximo_envio = datetime.combine(hoy, self.hora)
+        proximo_envio = timezone.make_aware(proximo_envio)
+        
+        # Si ya pasó la hora de hoy, programar para mañana
+        if proximo_envio <= ahora:
+            proximo_envio += timedelta(days=1)
+        
+        # Verificar que el próximo envío sea en un día válido
+        intentos = 0
+        while not self.es_dia_valido(proximo_envio.date()) and intentos < 7:
+            proximo_envio += timedelta(days=1)
+            intentos += 1
+        
+        return proximo_envio if intentos < 7 else None
+
+    def marcar_enviado(self):
+        """
+        Marca el recordatorio como enviado.
+        """
+        from django.utils import timezone
+        self.ultimo_enviado = timezone.now()
+        self.save(update_fields=['ultimo_enviado'])
+
+    def get_mensaje_completo(self):
+        """
+        Retorna el mensaje completo del recordatorio.
+        """
+        if self.mensaje:
+            return self.mensaje
+        
+        mensajes_por_tipo = {
+            'agua': f"💧 ¡Hora de hidratarse! Recuerda beber agua.",
+            'meta': f"🎯 ¡No olvides tu meta diaria de hidratación!",
+            'personalizado': f"⏰ Recordatorio personalizado"
+        }
+        
+        return mensajes_por_tipo.get(self.tipo_recordatorio, "⏰ Recordatorio de hidratación")

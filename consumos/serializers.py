@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Consumo, Recipiente, Bebida, MetaDiaria
+from .models import Consumo, Recipiente, Bebida, MetaDiaria, Recordatorio
 
 
 class BebidaSerializer(serializers.ModelSerializer):
@@ -352,3 +352,158 @@ class ConsumoStatsSerializer(serializers.Serializer):
     recipientes_mas_usados = serializers.ListField(
         child=serializers.DictField()
     )
+
+
+class RecordatorioSerializer(serializers.ModelSerializer):
+    """
+    Serializer para el modelo Recordatorio.
+    """
+    usuario = serializers.StringRelatedField(read_only=True)
+    dias_semana_display = serializers.CharField(source='get_dias_semana_display', read_only=True)
+    mensaje_completo = serializers.CharField(source='get_mensaje_completo', read_only=True)
+    proximo_envio = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Recordatorio
+        fields = [
+            'id', 'usuario', 'hora', 'mensaje', 'mensaje_completo',
+            'activo', 'dias_semana', 'dias_semana_display', 'tipo_recordatorio',
+            'frecuencia', 'sonido', 'vibracion', 'fecha_creacion',
+            'fecha_actualizacion', 'ultimo_enviado', 'proximo_envio'
+        ]
+        read_only_fields = [
+            'id', 'usuario', 'fecha_creacion', 'fecha_actualizacion',
+            'ultimo_enviado', 'proximo_envio'
+        ]
+
+    def get_proximo_envio(self, obj):
+        """
+        Retorna el próximo envío del recordatorio.
+        """
+        proximo = obj.get_proximo_envio()
+        return proximo.isoformat() if proximo else None
+
+    def validate_hora(self, value):
+        """
+        Valida que la hora sea válida.
+        """
+        if not value:
+            raise serializers.ValidationError('La hora es requerida.')
+        return value
+
+    def validate_dias_semana(self, value):
+        """
+        Valida que los días de la semana sean válidos.
+        """
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Los días deben ser una lista.')
+        
+        dias_validos = list(range(7))  # 0-6
+        for dia in value:
+            if not isinstance(dia, int) or dia not in dias_validos:
+                raise serializers.ValidationError(
+                    f'Día inválido: {dia}. Debe ser un número entre 0 y 6.'
+                )
+        
+        return value
+
+    def validate(self, attrs):
+        """
+        Validaciones adicionales del serializer.
+        """
+        # Validar que no haya duplicados de hora y tipo para el mismo usuario
+        if self.instance:
+            # Para actualización
+            usuario = self.instance.usuario
+            hora = attrs.get('hora', self.instance.hora)
+            tipo = attrs.get('tipo_recordatorio', self.instance.tipo_recordatorio)
+            
+            if Recordatorio.objects.filter(
+                usuario=usuario, hora=hora, tipo_recordatorio=tipo
+            ).exclude(id=self.instance.id).exists():
+                raise serializers.ValidationError({
+                    'hora': 'Ya tienes un recordatorio a esta hora con el mismo tipo.'
+                })
+        else:
+            # Para creación
+            usuario = self.context['request'].user
+            hora = attrs.get('hora')
+            tipo = attrs.get('tipo_recordatorio', 'agua')
+            
+            if Recordatorio.objects.filter(
+                usuario=usuario, hora=hora, tipo_recordatorio=tipo
+            ).exists():
+                raise serializers.ValidationError({
+                    'hora': 'Ya tienes un recordatorio a esta hora con el mismo tipo.'
+                })
+
+        return attrs
+
+    def create(self, validated_data):
+        """
+        Crea un nuevo recordatorio asignando el usuario autenticado.
+        """
+        validated_data['usuario'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class RecordatorioCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer simplificado para crear recordatorios.
+    """
+    class Meta:
+        model = Recordatorio
+        fields = [
+            'hora', 'mensaje', 'tipo_recordatorio', 'frecuencia',
+            'dias_semana', 'sonido', 'vibracion'
+        ]
+
+    def validate_hora(self, value):
+        """Valida la hora."""
+        if not value:
+            raise serializers.ValidationError('La hora es requerida.')
+        return value
+
+    def validate_dias_semana(self, value):
+        """Valida los días de la semana."""
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Los días deben ser una lista.')
+        
+        dias_validos = list(range(7))
+        for dia in value:
+            if not isinstance(dia, int) or dia not in dias_validos:
+                raise serializers.ValidationError(
+                    f'Día inválido: {dia}. Debe ser un número entre 0 y 6.'
+                )
+        
+        return value
+
+    def create(self, validated_data):
+        """Crea el recordatorio asignando el usuario."""
+        validated_data['usuario'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class MetaFijaSerializer(serializers.Serializer):
+    """
+    Serializer para la meta fija de hidratación.
+    """
+    meta_ml = serializers.IntegerField()
+    tipo_meta = serializers.CharField()
+    descripcion = serializers.CharField()
+    es_personalizable = serializers.BooleanField()
+    fecha_actualizacion = serializers.DateTimeField()
+
+
+class RecordatorioStatsSerializer(serializers.Serializer):
+    """
+    Serializer para estadísticas de recordatorios.
+    """
+    total_recordatorios = serializers.IntegerField()
+    recordatorios_activos = serializers.IntegerField()
+    recordatorios_inactivos = serializers.IntegerField()
+    proximos_recordatorios = serializers.ListField(
+        child=serializers.DictField()
+    )
+    recordatorios_por_tipo = serializers.DictField()
+    recordatorios_por_frecuencia = serializers.DictField()

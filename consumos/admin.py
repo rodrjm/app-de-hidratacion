@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Bebida, Recipiente, Consumo, MetaDiaria
+from .models import Bebida, Recipiente, Consumo, MetaDiaria, Recordatorio
 
 
 @admin.register(Bebida)
@@ -40,3 +40,19 @@ class MetaDiariaAdmin(admin.ModelAdmin):
     search_fields = ['usuario__username']
     ordering = ['-fecha']
     date_hierarchy = 'fecha'
+
+
+@admin.register(Recordatorio)
+class RecordatorioAdmin(admin.ModelAdmin):
+    list_display = [
+        'usuario', 'hora', 'tipo_recordatorio', 'frecuencia',
+        'activo', 'dias_semana_display', 'fecha_creacion'
+    ]
+    list_filter = ['tipo_recordatorio', 'frecuencia', 'activo', 'fecha_creacion']
+    search_fields = ['usuario__username', 'mensaje']
+    ordering = ['usuario', 'hora']
+    readonly_fields = ['fecha_creacion', 'fecha_actualizacion', 'ultimo_enviado']
+    
+    def dias_semana_display(self, obj):
+        return obj.get_dias_semana_display()
+    dias_semana_display.short_description = 'Días de la semana'

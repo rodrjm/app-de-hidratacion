@@ -6,10 +6,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta
-from .models import Consumo, Recipiente, Bebida, MetaDiaria
+from .models import Consumo, Recipiente, Bebida, MetaDiaria, Recordatorio
 from .serializers import (
     ConsumoSerializer, ConsumoCreateSerializer, RecipienteSerializer,
-    BebidaSerializer, MetaDiariaSerializer
+    BebidaSerializer, MetaDiariaSerializer, RecordatorioSerializer,
+    RecordatorioCreateSerializer, MetaFijaSerializer, RecordatorioStatsSerializer
 )
 
 
@@ -419,3 +420,210 @@ class MetaDiariaViewSet(viewsets.ReadOnlyModelViewSet):
             },
             'metas_diarias': serializer.data
         })
+
+
+class MetaFijaView(APIView):
+    """
+    Vista para obtener la meta fija de hidratación.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retorna la meta fija de hidratación del usuario.
+        """
+        from django.conf import settings
+        
+        # Obtener meta fija desde settings o usar valor por defecto
+        meta_fija_ml = getattr(settings, 'META_FIJA_ML', 2000)
+        
+        # Para usuarios premium, usar su meta personalizada
+        if request.user.es_premium:
+            meta_ml = request.user.meta_diaria_ml
+            tipo_meta = 'personalizada'
+            descripcion = 'Meta personalizada basada en tu perfil'
+            es_personalizable = True
+        else:
+            meta_ml = meta_fija_ml
+            tipo_meta = 'fija'
+            descripcion = 'Meta fija para usuarios gratuitos'
+            es_personalizable = False
+        
+        data = {
+            'meta_ml': meta_ml,
+            'tipo_meta': tipo_meta,
+            'descripcion': descripcion,
+            'es_personalizable': es_personalizable,
+            'fecha_actualizacion': request.user.fecha_actualizacion
+        }
+        
+        serializer = MetaFijaSerializer(data)
+        return Response(serializer.data)
+
+
+class RecordatorioViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar recordatorios de hidratación.
+    """
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filterset_fields = ['activo', 'tipo_recordatorio', 'frecuencia']
+    search_fields = ['mensaje']
+    ordering_fields = ['hora', 'fecha_creacion']
+    ordering = ['hora']
+
+    def get_serializer_class(self):
+        """
+        Retorna el serializer apropiado según la acción.
+        """
+        if self.action == 'create':
+            return RecordatorioCreateSerializer
+        return RecordatorioSerializer
+
+    def get_queryset(self):
+        """
+        Filtra los recordatorios del usuario autenticado.
+        """
+        return Recordatorio.objects.filter(usuario=self.request.user)
+
+    def perform_create(self, serializer):
+        """
+        Asigna el usuario autenticado al crear un recordatorio.
+        """
+        serializer.save(usuario=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        """
+        Alterna el estado activo de un recordatorio.
+        """
+        recordatorio = self.get_object()
+        recordatorio.activo = not recordatorio.activo
+        recordatorio.save(update_fields=['activo'])
+        
+        serializer = self.get_serializer(recordatorio)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def activos(self, request):
+        """
+        Retorna solo los recordatorios activos.
+        """
+        activos = self.get_queryset().filter(activo=True)
+        serializer = self.get_serializer(activos, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def proximos(self, request):
+        """
+        Retorna los próximos recordatorios programados.
+        """
+        from datetime import datetime, timedelta
+        
+        # Obtener próximos 7 días
+        hoy = timezone.now().date()
+        proximos_dias = [hoy + timedelta(days=i) for i in range(7)]
+        
+        recordatorios_proximos = []
+        
+        for recordatorio in self.get_queryset().filter(activo=True):
+            proximo_envio = recordatorio.get_proximo_envio()
+            if proximo_envio and proximo_envio.date() in proximos_dias:
+                recordatorios_proximos.append({
+                    'id': recordatorio.id,
+                    'hora': recordatorio.hora,
+                    'mensaje': recordatorio.get_mensaje_completo(),
+                    'tipo_recordatorio': recordatorio.tipo_recordatorio,
+                    'proximo_envio': proximo_envio.isoformat(),
+                    'dias_semana': recordatorio.dias_semana
+                })
+        
+        # Ordenar por próximo envío
+        recordatorios_proximos.sort(key=lambda x: x['proximo_envio'])
+        
+        return Response(recordatorios_proximos)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """
+        Retorna estadísticas de recordatorios del usuario.
+        """
+        queryset = self.get_queryset()
+        
+        # Contar totales
+        total_recordatorios = queryset.count()
+        recordatorios_activos = queryset.filter(activo=True).count()
+        recordatorios_inactivos = total_recordatorios - recordatorios_activos
+        
+        # Próximos recordatorios
+        proximos = []
+        for recordatorio in queryset.filter(activo=True)[:5]:
+            proximo_envio = recordatorio.get_proximo_envio()
+            if proximo_envio:
+                proximos.append({
+                    'id': recordatorio.id,
+                    'hora': recordatorio.hora,
+                    'mensaje': recordatorio.get_mensaje_completo(),
+                    'proximo_envio': proximo_envio.isoformat()
+                })
+        
+        # Agrupar por tipo
+        recordatorios_por_tipo = {}
+        for tipo, _ in Recordatorio._meta.get_field('tipo_recordatorio').choices:
+            count = queryset.filter(tipo_recordatorio=tipo).count()
+            if count > 0:
+                recordatorios_por_tipo[tipo] = count
+        
+        # Agrupar por frecuencia
+        recordatorios_por_frecuencia = {}
+        for frecuencia, _ in Recordatorio._meta.get_field('frecuencia').choices:
+            count = queryset.filter(frecuencia=frecuencia).count()
+            if count > 0:
+                recordatorios_por_frecuencia[frecuencia] = count
+        
+        data = {
+            'total_recordatorios': total_recordatorios,
+            'recordatorios_activos': recordatorios_activos,
+            'recordatorios_inactivos': recordatorios_inactivos,
+            'proximos_recordatorios': proximos,
+            'recordatorios_por_tipo': recordatorios_por_tipo,
+            'recordatorios_por_frecuencia': recordatorios_por_frecuencia
+        }
+        
+        serializer = RecordatorioStatsSerializer(data)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def marcar_enviado(self, request, pk=None):
+        """
+        Marca un recordatorio como enviado.
+        """
+        recordatorio = self.get_object()
+        recordatorio.marcar_enviado()
+        
+        serializer = self.get_serializer(recordatorio)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def crear_rapido(self, request):
+        """
+        Crea un recordatorio rápido con configuración mínima.
+        """
+        data = request.data.copy()
+        
+        # Valores por defecto
+        if 'tipo_recordatorio' not in data:
+            data['tipo_recordatorio'] = 'agua'
+        if 'frecuencia' not in data:
+            data['frecuencia'] = 'diario'
+        if 'dias_semana' not in data:
+            data['dias_semana'] = list(range(7))  # Todos los días
+        
+        serializer = RecordatorioCreateSerializer(data=data, context={'request': request})
+        
+        if serializer.is_valid():
+            recordatorio = serializer.save()
+            response_serializer = RecordatorioSerializer(recordatorio)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
