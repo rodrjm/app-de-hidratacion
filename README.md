@@ -1,172 +1,189 @@
-# HydroTracker API
+# 💧 HydroTracker - API de Hidratación
 
-API REST para la aplicación de seguimiento de hidratación HydroTracker, desarrollada con Django REST Framework.
+Una API RESTful completa para el seguimiento de hidratación con funcionalidades premium y sistema de monetización.
 
-## Características
+## 🚀 Instalación Rápida
 
-- **Autenticación JWT**: Sistema de autenticación seguro con tokens JWT
-- **Registro de usuarios**: Creación de cuentas con validación completa
-- **Perfil de usuario**: Gestión de datos personales y configuración de hidratación
-- **Modelo de datos robusto**: Usuarios, consumos, bebidas, recipientes y metas diarias
-- **API RESTful**: Endpoints bien estructurados siguiendo las mejores prácticas
-
-## Instalación
-
-### Requisitos
-
-- Python 3.8+
-- PostgreSQL 12+
-- pip
-
-### Configuración
-
-1. **Clonar el repositorio**
-   ```bash
-   git clone <repository-url>
-   cd app-de-hidratacion
-   ```
-
-2. **Crear entorno virtual**
-   ```bash
-   python -m venv venv
-   # Windows
-   venv\Scripts\activate
-   # Linux/Mac
-   source venv/bin/activate
-   ```
-
-3. **Instalar dependencias**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configurar variables de entorno**
-   ```bash
-   cp env.example .env
-   # Editar .env con tus configuraciones
-   ```
-
-5. **Configurar base de datos**
-   ```bash
-   # Crear base de datos PostgreSQL
-   createdb hydrotracker
-   
-   # Ejecutar migraciones
-   python manage.py makemigrations
-   python manage.py migrate
-   ```
-
-6. **Crear superusuario**
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-7. **Ejecutar servidor**
-   ```bash
-   python manage.py runserver
-   ```
-
-## API Endpoints
-
-### Autenticación
-
-- `POST /api/register/` - Registro de nuevos usuarios
-- `POST /api/login/` - Inicio de sesión
-- `POST /api/logout/` - Cerrar sesión
-- `POST /api/token/refresh/` - Renovar token de acceso
-
-### Perfil de Usuario
-
-- `GET /api/profile/` - Obtener perfil del usuario
-- `PATCH /api/profile/` - Actualizar perfil del usuario
-- `POST /api/change-password/` - Cambiar contraseña
-- `GET /api/stats/` - Obtener estadísticas del usuario
-
-### Validaciones
-
-- `POST /api/check-username/` - Verificar disponibilidad de nombre de usuario
-- `POST /api/check-email/` - Verificar disponibilidad de correo electrónico
-
-## Estructura del Proyecto
-
-```
-hydrotracker/
-├── hydrotracker/          # Configuración principal
-│   ├── settings.py        # Configuración de Django
-│   ├── urls.py           # URLs principales
-│   └── wsgi.py           # Configuración WSGI
-├── users/                # App de usuarios
-│   ├── models.py         # Modelo User personalizado
-│   ├── serializers.py    # Serializers para API
-│   ├── views.py          # Vistas de la API
-│   ├── urls.py           # URLs de usuarios
-│   └── admin.py          # Configuración del admin
-├── consumos/             # App de consumos
-│   ├── models.py         # Modelos de consumos, bebidas, etc.
-│   ├── views.py          # Vistas de consumos
-│   ├── urls.py           # URLs de consumos
-│   └── admin.py          # Configuración del admin
-├── requirements.txt      # Dependencias de Python
-├── manage.py            # Script de gestión de Django
-└── README.md            # Este archivo
-```
-
-## Modelos de Datos
-
-### User (Usuario)
-- Campos básicos: username, email, password
-- Datos personales: peso, edad, fecha_nacimiento, género
-- Configuración de hidratación: meta_diaria_ml, nivel_actividad
-- Configuración de notificaciones: recordar_notificaciones, horarios
-
-### Bebida
-- Información de bebidas y su factor de hidratación
-- Calorías por mililitro
-- Clasificación de tipo de bebida
-
-### Recipiente
-- Recipientes personalizados del usuario
-- Capacidad en mililitros
-- Configuración visual (color, icono)
-
-### Consumo
-- Registro de consumos de hidratación
-- Relación con bebida y recipiente
-- Datos adicionales: ubicación, temperatura, nivel de sed
-
-### MetaDiaria
-- Metas diarias de hidratación
-- Seguimiento de progreso
-- Cálculo automático de hidratación efectiva
-
-## Características Técnicas
-
-- **Django 4.2.7**: Framework web robusto
-- **Django REST Framework 3.14.0**: API REST completa
-- **JWT Authentication**: Autenticación segura sin estado
-- **PostgreSQL**: Base de datos relacional robusta
-- **Validación completa**: Validación de datos en frontend y backend
-- **Documentación automática**: Endpoints bien documentados
-
-## Desarrollo
-
-### Ejecutar tests
+### Windows
 ```bash
-python manage.py test
+# Opción 1: Instalación automática
+install-windows.bat
+
+# Opción 2: Instalación rápida con Python
+python quick-install.py
 ```
 
-### Crear migraciones
+### Linux/macOS
 ```bash
-python manage.py makemigrations
+# Opción 1: Instalación automática
+chmod +x install-unix.sh
+./install-unix.sh
+
+# Opción 2: Instalación rápida con Python
+python3 quick-install.py
+```
+
+### Instalación Manual
+```bash
+# Instalar dependencias básicas
+pip install Django==4.2.7 djangorestframework==3.14.0 djangorestframework-simplejwt==5.3.0 django-cors-headers==4.3.1 django-filter==23.3 python-decouple==3.8
+
+# Configurar base de datos
 python manage.py migrate
+
+# Crear superusuario
+python manage.py createsuperuser
+
+# Ejecutar servidor
+python manage.py runserver
 ```
 
-### Cargar datos de ejemplo
+## 🔧 Solución de Problemas
+
+### Error: "Microsoft Visual C++ 14.0 or greater is required"
+
+**Solución 1**: Instalar Visual C++ Build Tools
+- Descarga desde: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+- Instala "C++ build tools"
+- Reinicia terminal y ejecuta: `pip install -r requirements.txt`
+
+**Solución 2**: Usar SQLite
 ```bash
-python manage.py loaddata fixtures/initial_data.json
+python manage_sqlite.py migrate
+python manage_sqlite.py runserver
 ```
 
-## Contribución
+**Solución 3**: Instalar solo dependencias básicas
+```bash
+pip install Django==4.2.7 djangorestframework==3.14.0 djangorestframework-simplejwt==5.3.0 django-cors-headers==4.3.1 django-filter==23.3 python-decouple==3.8
+```
+
+## 📚 Documentación
+
+- [Guía de Instalación](INSTALACION.md) - Instrucciones detalladas
+- [Ejemplos de API](api_examples.md) - Ejemplos de uso de la API
+- [API de Monetización](api_monetization_examples.md) - Funcionalidades premium
+- [API de Estadísticas](api_premium_stats_examples.md) - Análisis avanzados
+- [API de Verificación de Anuncios](api_no_ads_examples.md) - Control de anuncios
+
+## 🎯 Características
+
+### ✅ Funcionalidades Básicas
+- **Gestión de Consumos**: Registrar y consultar consumos de hidratación
+- **Metas Diarias**: Configurar y seguir metas de hidratación
+- **Recordatorios**: Sistema de recordatorios personalizables
+- **Bebidas**: Catálogo de bebidas con factores de hidratación
+- **Recipientes**: Gestión de recipientes personalizados
+
+### 💎 Funcionalidades Premium
+- **Meta Personalizada**: Cálculo basado en peso y actividad
+- **Bebidas Premium**: Acceso a catálogo completo
+- **Recordatorios Ilimitados**: Sin restricciones de cantidad
+- **Estadísticas Avanzadas**: Análisis detallados y tendencias
+- **Insights Inteligentes**: Patrones y recomendaciones
+
+### 🔒 Seguridad
+- **Autenticación JWT**: Sistema seguro de autenticación
+- **Permisos Granulares**: Control de acceso por funcionalidad
+- **Validación de Datos**: Validación robusta de entrada
+- **Protección CSRF**: Protección contra ataques CSRF
+
+## 🛠️ Tecnologías
+
+- **Backend**: Django 4.2.7 + Django REST Framework
+- **Base de Datos**: PostgreSQL (producción) / SQLite (desarrollo)
+- **Autenticación**: JWT con djangorestframework-simplejwt
+- **Filtros**: django-filter para consultas avanzadas
+- **CORS**: django-cors-headers para integración frontend
+
+## 📊 Endpoints Principales
+
+### 🔐 Autenticación
+- `POST /api/login/` - Iniciar sesión
+- `POST /api/register/` - Registro de usuario
+- `POST /api/refresh/` - Renovar token
+
+### 💧 Consumos
+- `GET /api/consumos/` - Listar consumos
+- `POST /api/consumos/` - Crear consumo
+- `GET /api/consumos/{id}/` - Obtener consumo
+- `PUT /api/consumos/{id}/` - Actualizar consumo
+- `DELETE /api/consumos/{id}/` - Eliminar consumo
+
+### 🎯 Metas y Recordatorios
+- `GET /api/goals/` - Meta diaria fija
+- `GET /api/recordatorios/` - Listar recordatorios
+- `POST /api/recordatorios/` - Crear recordatorio
+- `DELETE /api/recordatorios/{id}/` - Eliminar recordatorio
+
+### 💰 Monetización
+- `GET /api/monetization/status/` - Estado de suscripción
+- `GET /api/monetization/features/` - Funcionalidades premium
+- `GET /api/monetization/limits/` - Límites de uso
+- `GET /api/monetization/no-ads/` - Verificación de anuncios
+
+### 💎 Premium
+- `GET /api/premium/goal/` - Meta personalizada
+- `GET /api/premium/beverages/` - Bebidas premium
+- `GET /api/premium/stats/history/` - Historial detallado
+- `GET /api/premium/stats/summary/` - Estadísticas agregadas
+- `GET /api/premium/stats/insights/` - Insights avanzados
+
+## 🧪 Pruebas
+
+```bash
+# Ejecutar todas las pruebas
+python test_goals_reminders_api.py
+python test_monetization_api.py
+python test_premium_api.py
+python test_premium_stats_api.py
+python test_no_ads_api.py
+
+# Con SQLite
+python test_no_ads_api.py --settings=hydrotracker.settings_sqlite
+```
+
+## 🚀 Despliegue
+
+### Desarrollo
+```bash
+python manage.py runserver
+```
+
+### Producción
+```bash
+# Configurar variables de entorno
+cp env.example .env
+# Editar .env con configuraciones de producción
+
+# Ejecutar migraciones
+python manage.py migrate
+
+# Recopilar archivos estáticos
+python manage.py collectstatic
+
+# Ejecutar con Gunicorn
+gunicorn hydrotracker.wsgi:application
+```
+
+## 📈 Monitoreo
+
+### Logs
+```bash
+# Ver logs de Django
+tail -f logs/django.log
+
+# Ver logs de errores
+tail -f logs/error.log
+```
+
+### Métricas
+- Tiempo de respuesta de endpoints
+- Uso de memoria y CPU
+- Errores y excepciones
+- Uso de base de datos
+
+## 🤝 Contribución
 
 1. Fork el proyecto
 2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
@@ -174,6 +191,27 @@ python manage.py loaddata fixtures/initial_data.json
 4. Push a la rama (`git push origin feature/AmazingFeature`)
 5. Abre un Pull Request
 
-## Licencia
+## 📄 Licencia
 
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+
+## 🆘 Soporte
+
+Si tienes problemas:
+
+1. Revisa la [Guía de Instalación](INSTALACION.md)
+2. Verifica que tienes Python 3.8+ instalado
+3. Asegúrate de tener pip actualizado: `pip install --upgrade pip`
+4. Prueba con SQLite si PostgreSQL no funciona
+5. Revisa los logs de error para más detalles
+
+## 📞 Contacto
+
+- **Proyecto**: HydroTracker
+- **Versión**: 1.0.0
+- **Autor**: Equipo de Desarrollo
+- **Email**: support@hydrotracker.com
+
+---
+
+¡Gracias por usar HydroTracker! 💧
