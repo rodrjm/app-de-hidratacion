@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Consumo, Bebida, Recipiente, EstadisticasDiarias, Tendencias, Insights } from '@/types';
-import { consumosService, bebidasService, recipientesService } from '@/services/consumos';
+import { Consumo, Bebida, Recipiente, EstadisticasDiarias, Tendencias, Insights, ConsumoForm, FilterOptions } from '@/types';
+import { consumosService, bebidasService, recipientesService, metasService } from '@/services/consumos';
+import { useAuthStore } from '@/store/authStore';
 
 interface ConsumosState {
   // Datos
@@ -33,9 +34,9 @@ interface ConsumosState {
 
 interface ConsumosActions {
   // Acciones de consumos
-  fetchConsumos: (page?: number, filters?: any) => Promise<void>;
-  addConsumo: (consumo: any) => Promise<void>;
-  updateConsumo: (id: number, consumo: any) => Promise<void>;
+  fetchConsumos: (page?: number, filters?: FilterOptions) => Promise<void>;
+  addConsumo: (consumo: ConsumoForm) => Promise<void>;
+  updateConsumo: (id: number, consumo: Partial<ConsumoForm>) => Promise<void>;
   deleteConsumo: (id: number) => Promise<void>;
   refreshConsumos: () => Promise<void>;
   
@@ -45,8 +46,8 @@ interface ConsumosActions {
   
   // Acciones de recipientes
   fetchRecipientes: () => Promise<void>;
-  addRecipiente: (recipiente: any) => Promise<void>;
-  updateRecipiente: (id: number, recipiente: any) => Promise<void>;
+  addRecipiente: (recipiente: Partial<Recipiente>) => Promise<void>;
+  updateRecipiente: (id: number, recipiente: Partial<Recipiente>) => Promise<void>;
   deleteRecipiente: (id: number) => Promise<void>;
   
   // Acciones de estadísticas
@@ -116,18 +117,24 @@ export const useConsumosStore = create<ConsumosStore>((set, get) => ({
   },
 
   addConsumo: async (consumo) => {
+    console.log('ConsumosStore: addConsumo called with:', consumo);
     set({ isLoading: true, error: null });
     
     try {
+      console.log('ConsumosStore: calling consumosService.createConsumo...');
       const newConsumo = await consumosService.createConsumo(consumo);
+      console.log('ConsumosStore: consumo created successfully:', newConsumo);
+      
       set(state => ({
         consumos: [newConsumo, ...state.consumos],
         isLoading: false
       }));
       
       // Refrescar estadísticas
+      console.log('ConsumosStore: refreshing estadísticas...');
       get().fetchEstadisticas();
     } catch (error) {
+      console.error('ConsumosStore: error adding consumo:', error);
       set({
         error: error instanceof Error ? error.message : 'Error al agregar consumo',
         isLoading: false
@@ -195,10 +202,23 @@ export const useConsumosStore = create<ConsumosStore>((set, get) => ({
 
   fetchBebidasPremium: async () => {
     try {
-      const bebidas = await bebidasService.getBebidasPremium();
-      set(state => ({
-        bebidas: [...state.bebidas, ...bebidas]
-      }));
+      const bebidasPremium = await bebidasService.getBebidasPremium();
+      set(state => {
+        // Si ya hay bebidas en el estado, evitar duplicados por ID
+        if (state.bebidas.length > 0) {
+          const bebidasMap = new Map(state.bebidas.map(b => [b.id, b]));
+          // Agregar las bebidas premium, sobrescribiendo si ya existen
+          bebidasPremium.forEach(b => bebidasMap.set(b.id, b));
+          return {
+            bebidas: Array.from(bebidasMap.values())
+          };
+        } else {
+          // Si no hay bebidas previas, usar directamente las premium
+          return {
+            bebidas: bebidasPremium
+          };
+        }
+      });
     } catch (error) {
       console.error('Error al cargar bebidas premium:', error);
     }
@@ -208,56 +228,73 @@ export const useConsumosStore = create<ConsumosStore>((set, get) => ({
   fetchRecipientes: async () => {
     try {
       const response = await recipientesService.getRecipientes();
-      set({ recipientes: response.results });
+      set({ recipientes: response.results || [] });
     } catch (error) {
       console.error('Error al cargar recipientes:', error);
+      // No lanzar error para evitar bucles, solo registrar
+      set({ recipientes: [] });
     }
   },
 
   addRecipiente: async (recipiente) => {
-    try {
-      const newRecipiente = await recipientesService.createRecipiente(recipiente);
-      set(state => ({
-        recipientes: [...state.recipientes, newRecipiente]
-      }));
-    } catch (error) {
-      throw error;
-    }
+    const newRecipiente = await recipientesService.createRecipiente(recipiente);
+    set(state => ({
+      recipientes: [...state.recipientes, newRecipiente]
+    }));
   },
 
   updateRecipiente: async (id, recipiente) => {
-    try {
-      const updatedRecipiente = await recipientesService.updateRecipiente(id, recipiente);
-      set(state => ({
-        recipientes: state.recipientes.map(r => r.id === id ? updatedRecipiente : r)
-      }));
-    } catch (error) {
-      throw error;
-    }
+    const updatedRecipiente = await recipientesService.updateRecipiente(id, recipiente);
+    set(state => ({
+      recipientes: state.recipientes.map(r => r.id === id ? updatedRecipiente : r)
+    }));
   },
 
   deleteRecipiente: async (id) => {
-    try {
-      await recipientesService.deleteRecipiente(id);
-      set(state => ({
-        recipientes: state.recipientes.filter(r => r.id !== id)
-      }));
-    } catch (error) {
-      throw error;
-    }
+    await recipientesService.deleteRecipiente(id);
+    set(state => ({
+      recipientes: state.recipientes.filter(r => r.id !== id)
+    }));
   },
 
   // Acciones de estadísticas
   fetchEstadisticas: async (fecha) => {
+    console.log('ConsumosStore: fetchEstadisticas called with fecha:', fecha);
     set({ isLoadingEstadisticas: true, errorEstadisticas: null });
     
     try {
-      const estadisticas = await consumosService.getEstadisticasDiarias(fecha);
+      console.log('ConsumosStore: calling consumosService.getEstadisticasDiarias...');
+      let estadisticas = await consumosService.getEstadisticasDiarias(fecha);
+      console.log('ConsumosStore: estadisticas received:', estadisticas);
+      
+      // Aplicar meta personalizada si el usuario es premium
+      const user = useAuthStore.getState().user;
+      if (user?.es_premium) {
+        try {
+          const personalizada = await metasService.getMetaPersonalizada();
+          const meta_ml = personalizada.meta_ml;
+          const total_hidratacion_efectiva_ml = estadisticas.total_hidratacion_efectiva_ml;
+          const progreso_porcentaje = meta_ml > 0 ? Math.min((total_hidratacion_efectiva_ml / meta_ml) * 100, 100) : 0;
+          const completada = total_hidratacion_efectiva_ml >= meta_ml;
+          estadisticas = {
+            ...estadisticas,
+            meta_ml,
+            progreso_porcentaje,
+            completada
+          } as EstadisticasDiarias;
+          console.log('ConsumosStore: applied personalized goal to stats:', estadisticas);
+        } catch (e) {
+          console.warn('ConsumosStore: failed to load personalized goal, using default meta:', e);
+        }
+      }
+      
       set({
         estadisticas,
         isLoadingEstadisticas: false
       });
+      console.log('ConsumosStore: estadisticas updated in store');
     } catch (error) {
+      console.error('ConsumosStore: error fetching estadisticas:', error);
       set({
         errorEstadisticas: error instanceof Error ? error.message : 'Error al cargar estadísticas',
         isLoadingEstadisticas: false
