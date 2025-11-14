@@ -41,48 +41,59 @@ def install_basic_dependencies():
 
 def install_postgresql_dependencies():
     """Intenta instalar psycopg2."""
-    print("🔧 Intentando instalar psycopg2...")
+    print("🔧 Intentando instalar psycopg2-binary...")
     
-    # Intentar psycopg2-binary primero
+    # Intentar psycopg2-binary primero (más compatible con Windows)
     if run_command("pip install psycopg2-binary==2.9.9"):
         return True
     
-    # Si falla, intentar psycopg2
-    if run_command("pip install psycopg2==2.9.9"):
-        return True
-    
+    # Si falla, continuar sin PostgreSQL (usaremos SQLite)
+    print("⚠️ No se pudo instalar psycopg2-binary, usarás SQLite")
+    print("   Para producción, PostgreSQL se configurará en Railway")
     return False
 
-def setup_database():
+def setup_database(use_sqlite=True):
     """Configura la base de datos."""
     print("🗄️ Configurando base de datos...")
     
-    # Intentar con PostgreSQL primero
-    if run_command("python manage.py migrate"):
-        print("✅ Base de datos PostgreSQL configurada")
-        return True
-    
-    # Si falla, usar SQLite
-    print("⚠️ PostgreSQL no disponible, usando SQLite...")
-    if run_command("python manage_sqlite.py migrate"):
-        print("✅ Base de datos SQLite configurada")
-        return True
+    if use_sqlite:
+        # Usar SQLite por defecto (más fácil)
+        if run_command("python manage_sqlite.py migrate"):
+            print("✅ Base de datos SQLite configurada")
+            return True
+    else:
+        # Intentar con PostgreSQL
+        if run_command("python manage.py migrate"):
+            print("✅ Base de datos PostgreSQL configurada")
+            return True
+        
+        # Si falla, usar SQLite
+        print("⚠️ PostgreSQL no disponible, usando SQLite...")
+        if run_command("python manage_sqlite.py migrate"):
+            print("✅ Base de datos SQLite configurada")
+            return True
     
     return False
 
-def create_superuser():
+def create_superuser(use_sqlite=True):
     """Crea un superusuario."""
     print("👤 Creando superusuario...")
     
-    # Intentar con PostgreSQL
-    if run_command("python manage.py createsuperuser --noinput --username admin --email admin@example.com"):
-        print("✅ Superusuario creado con PostgreSQL")
-        return True
-    
-    # Si falla, usar SQLite
-    if run_command("python manage_sqlite.py createsuperuser --noinput --username admin --email admin@example.com"):
-        print("✅ Superusuario creado con SQLite")
-        return True
+    if use_sqlite:
+        # Usar SQLite
+        if run_command("python manage_sqlite.py createsuperuser --noinput --username admin --email admin@example.com"):
+            print("✅ Superusuario creado con SQLite")
+            return True
+    else:
+        # Intentar con PostgreSQL
+        if run_command("python manage.py createsuperuser --noinput --username admin --email admin@example.com"):
+            print("✅ Superusuario creado con PostgreSQL")
+            return True
+        
+        # Si falla, usar SQLite
+        if run_command("python manage_sqlite.py createsuperuser --noinput --username admin --email admin@example.com"):
+            print("✅ Superusuario creado con SQLite")
+            return True
     
     return False
 
@@ -105,26 +116,36 @@ def main():
     
     if postgresql_available:
         print("✅ PostgreSQL disponible")
+        use_sqlite = False
     else:
-        print("⚠️ PostgreSQL no disponible, usando SQLite")
+        print("⚠️ Usando SQLite para desarrollo")
+        print("   PostgreSQL se configurará en Railway para producción")
+        use_sqlite = True
     
     # Configurar base de datos
-    if not setup_database():
+    if not setup_database(use_sqlite=use_sqlite):
         print("❌ Error configurando base de datos")
         return False
     
     # Crear superusuario
-    if not create_superuser():
+    if not create_superuser(use_sqlite=use_sqlite):
         print("⚠️ No se pudo crear superusuario automáticamente")
-        print("   Ejecuta manualmente: python manage.py createsuperuser")
+        if use_sqlite:
+            print("   Ejecuta manualmente: python manage_sqlite.py createsuperuser")
+        else:
+            print("   Ejecuta manualmente: python manage.py createsuperuser")
     
     print("\n🎉 Instalación completada!")
     print("\n📋 Próximos pasos:")
-    print("1. Ejecuta: python manage.py runserver")
+    if use_sqlite:
+        print("1. Ejecuta: python manage_sqlite.py runserver")
+    else:
+        print("1. Ejecuta: python manage.py runserver")
     print("2. Visita: http://127.0.0.1:8000/admin/")
     print("3. Usuario: admin, Contraseña: admin123")
+    print("\n💡 Nota: SQLite en desarrollo, PostgreSQL en producción (Railway)")
     print("\n🧪 Para probar la API:")
-    print("python test_no_ads_api.py")
+    print("Visita: http://127.0.0.1:8000/api/docs/")
     
     return True
 
