@@ -1,5 +1,7 @@
 # 💧 HydroTracker - API de Hidratación
 
+![Frontend CI](https://github.com/OWNER/REPO/actions/workflows/frontend-ci.yml/badge.svg)
+
 Una API RESTful completa para el seguimiento de hidratación con funcionalidades premium y sistema de monetización.
 
 ## 🚀 Instalación Rápida
@@ -60,11 +62,7 @@ pip install Django==4.2.7 djangorestframework==3.14.0 djangorestframework-simple
 
 ## 📚 Documentación
 
-- [Guía de Instalación](INSTALACION.md) - Instrucciones detalladas
-- [Ejemplos de API](api_examples.md) - Ejemplos de uso de la API
-- [API de Monetización](api_monetization_examples.md) - Funcionalidades premium
-- [API de Estadísticas](api_premium_stats_examples.md) - Análisis avanzados
-- [API de Verificación de Anuncios](api_no_ads_examples.md) - Control de anuncios
+- Ver carpeta `docs/` en el repositorio
 
 ## 🎯 Características
 
@@ -144,6 +142,13 @@ python test_no_ads_api.py --settings=hydrotracker.settings_sqlite
 ```
 
 ## 🚀 Despliegue
+## ✅ Calidad y Accesibilidad
+
+- Lint de a11y (jsx-a11y) y React en `frontend`:
+  - `npm run lint` y `npm run lint:fix`
+- CI ejecuta type-check, lint, build y Lighthouse (ver workflow `Frontend CI`).
+- Presupuestos de rendimiento en `.github/workflows/lh-budgets.json`.
+
 
 ### Desarrollo
 ```bash
