@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Droplets, Target, TrendingUp } from 'lucide-react';
 import ProgressBar from '@/components/ui/ProgressBar';
 import Card from '@/components/ui/Card';
@@ -13,19 +13,41 @@ const HydrationProgress: React.FC<HydrationProgressProps> = ({
   estadisticas,
   className = ''
 }) => {
+  console.log('HydrationProgress: Received estadisticas:', estadisticas);
+  
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Manejar datos vacíos o undefined
   const {
+    total_hidratacion_efectiva_ml = 0,
+    meta_ml = 0,
+    progreso_porcentaje = 0,
+    completada = false,
+    cantidad_consumos = 0
+  } = estadisticas || {};
+
+  console.log('HydrationProgress: Processed values:', {
     total_hidratacion_efectiva_ml,
     meta_ml,
     progreso_porcentaje,
     completada,
     cantidad_consumos
-  } = estadisticas;
+  });
+
+  // Efecto para mostrar animación cuando se actualiza
+  useEffect(() => {
+    if (estadisticas) {
+      setIsUpdating(true);
+      const timer = setTimeout(() => setIsUpdating(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [estadisticas]);
 
   const getProgressColor = () => {
-    if (completada) return 'success';
-    if (progreso_porcentaje >= 80) return 'primary';
-    if (progreso_porcentaje >= 50) return 'warning';
-    return 'error';
+    if (completada) return 'chart'; // Verde Menta cuando se completa (Meta Cumplida)
+    if (progreso_porcentaje >= 80) return 'secondary'; // Verde Esmeralda cuando está cerca de completar
+    if (progreso_porcentaje >= 50) return 'accent'; // Azul Ciel en progreso medio (transición)
+    return 'accent'; // Azul Ciel al inicio
   };
 
   const getMotivationalMessage = () => {
@@ -47,98 +69,41 @@ const HydrationProgress: React.FC<HydrationProgressProps> = ({
   };
 
   return (
-    <Card className={`${className}`} padding="lg">
+    <Card className={`${className} ${isUpdating ? 'ring-2 ring-blue-400 ring-opacity-50' : ''} transition-all duration-500`} padding="lg">
       <div className="space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Progreso de Hidratación
+          <h2 className="text-2xl font-display font-bold text-neutral-700 mb-2">
+            Progreso de hidratación
           </h2>
-          <p className="text-gray-600">
+          <p className="text-neutral-600">
             {getMotivationalMessage()}
           </p>
         </div>
 
-        {/* Main Progress */}
-        <div className="space-y-4">
+        {/* Main Progress - Más visible y central */}
+        <div className="space-y-6">
           <ProgressBar
             value={total_hidratacion_efectiva_ml}
             max={meta_ml}
-            label="Hidratación Efectiva"
+            label="Hidratación efectiva"
             showPercentage={true}
             color={getProgressColor()}
             size="lg"
-            animated={!completada}
+            animated={isUpdating || !completada}
           />
-          
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <Droplets className="w-5 h-5 text-blue-500" />
-              </div>
-              <div className="text-2xl font-bold text-blue-600">
-                {total_hidratacion_efectiva_ml}ml
-              </div>
-              <div className="text-sm text-blue-500">
-                Consumido
-              </div>
-            </div>
-            
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <Target className="w-5 h-5 text-green-500" />
-              </div>
-              <div className="text-2xl font-bold text-green-600">
-                {meta_ml}ml
-              </div>
-              <div className="text-sm text-green-500">
-                Meta Diaria
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Info */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-lg font-semibold text-gray-700">
-              {cantidad_consumos}
-            </div>
-            <div className="text-sm text-gray-500">
-              Consumos Hoy
-            </div>
-          </div>
-          
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-lg font-semibold text-gray-700">
-              {getRemainingAmount()}ml
-            </div>
-            <div className="text-sm text-gray-500">
-              Restante
-            </div>
-          </div>
-          
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-lg font-semibold text-gray-700">
-              {Math.round(progreso_porcentaje)}%
-            </div>
-            <div className="text-sm text-gray-500">
-              Progreso
-            </div>
-          </div>
         </div>
 
         {/* Completion Badge */}
         {completada && (
-          <div className="text-center p-4 bg-green-100 border border-green-200 rounded-lg">
+          <div className="text-center p-4 bg-chart-100 border border-chart-200 rounded-lg">
             <div className="flex items-center justify-center mb-2">
-              <TrendingUp className="w-6 h-6 text-green-600" />
+              <TrendingUp className="w-6 h-6 text-chart-600" />
             </div>
-            <div className="text-lg font-semibold text-green-800">
-              ¡Meta Completada!
+          <div className="text-lg font-display font-bold text-chart-800">
+              ¡Meta completada!
             </div>
-            <div className="text-sm text-green-600">
+            <div className="text-sm text-chart-600">
               Has alcanzado tu objetivo de hidratación para hoy
             </div>
           </div>

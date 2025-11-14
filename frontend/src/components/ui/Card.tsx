@@ -8,10 +8,10 @@ const Card: React.FC<CardProps> = ({
   subtitle,
   className = '',
   padding = 'md',
-  shadow = 'soft',
+  shadow = 'card',
   ...props
 }) => {
-  const baseClasses = 'bg-white rounded-xl border border-gray-100';
+  const baseClasses = 'bg-white rounded-xl border border-neutral-100';
   
   const paddingClasses = {
     sm: 'p-4',
@@ -23,7 +23,8 @@ const Card: React.FC<CardProps> = ({
     none: '',
     soft: 'shadow-soft',
     medium: 'shadow-medium',
-    strong: 'shadow-strong'
+    strong: 'shadow-strong',
+    card: 'shadow-card'
   };
   
   const classes = clsx(
@@ -38,12 +39,12 @@ const Card: React.FC<CardProps> = ({
       {(title || subtitle) && (
         <div className="mb-4">
           {title && (
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+            <h3 className="text-lg font-display font-bold text-neutral-700 mb-1">
               {title}
             </h3>
           )}
           {subtitle && (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-neutral-600">
               {subtitle}
             </p>
           )}
@@ -55,3 +56,4 @@ const Card: React.FC<CardProps> = ({
 };
 
 export default Card;
+export { Card };

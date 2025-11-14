@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Droplets, Plus, Check } from 'lucide-react';
+import { Droplets, Check } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useConsumosStore } from '@/store/consumosStore';
 import { toast } from 'react-hot-toast';

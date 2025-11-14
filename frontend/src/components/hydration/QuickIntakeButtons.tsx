@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Droplets, Coffee, Apple, Zap } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useConsumosStore } from '@/store/consumosStore';
+import { useAuthStore } from '@/store/authStore';
 import { Bebida, Recipiente } from '@/types';
+import AddConsumoModal from '@/components/hydration/AddConsumoModal';
 
 interface QuickIntakeButtonsProps {
   bebidas: Bebida[];
@@ -18,6 +20,9 @@ const QuickIntakeButtons: React.FC<QuickIntakeButtonsProps> = ({
   className = ''
 }) => {
   const { addConsumo } = useConsumosStore();
+  const { user } = useAuthStore();
+  const isPremium = !!user?.es_premium;
+  const [showModal, setShowModal] = useState(false);
 
   // Configuración de botones rápidos
   const quickButtons = [
@@ -60,21 +65,30 @@ const QuickIntakeButtons: React.FC<QuickIntakeButtonsProps> = ({
   ];
 
   const handleQuickIntake = async (button: typeof quickButtons[0]) => {
-    if (!button.beverage || !button.container) {
-      console.warn('No hay bebida o recipiente disponible');
+    console.log('QuickIntakeButtons: handleQuickIntake called with:', button);
+    console.log('Available bebidas:', bebidas);
+    console.log('Available recipientes:', recipientes);
+    
+    if (!button.beverage) {
+      console.warn('No hay bebidas disponibles. Cargando...');
       return;
     }
 
-    try {
-      await addConsumo({
-        bebida: button.beverage,
-        recipiente: button.container,
-        cantidad_ml: button.amount,
-        nivel_sed: 3,
-        estado_animo: 4
-      });
+    const consumoData = {
+      bebida: button.beverage,
+      recipiente: button.container || null,
+      cantidad_ml: button.amount,
+      nivel_sed: 3,
+      estado_animo: 'bueno',
+      fecha_hora: new Date().toISOString()
+    };
+    
+    console.log('Sending consumo data:', consumoData);
 
-      onIntake(button.amount, button.beverage, button.container);
+    try {
+      const result = await addConsumo(consumoData);
+      console.log('Consumo added successfully:', result);
+      onIntake(button.amount, button.beverage, button.container || 0);
     } catch (error) {
       console.error('Error adding quick intake:', error);
     }
@@ -118,19 +132,36 @@ const QuickIntakeButtons: React.FC<QuickIntakeButtonsProps> = ({
         })}
       </div>
 
-      {/* Custom Amount Button */}
+      {/* Custom Amount Button - opens modal */}
       <Button
         variant="ghost"
         size="md"
         className="w-full border-2 border-dashed border-gray-300 hover:border-primary-500 hover:bg-primary-50"
-        onClick={() => {
-          // This would open a modal for custom amount
-          console.log('Open custom amount modal');
-        }}
+        onClick={() => setShowModal(true)}
       >
         <Zap className="w-4 h-4 mr-2" />
         Cantidad Personalizada
       </Button>
+
+      {showModal && (
+        <AddConsumoModal
+          bebidas={bebidas}
+          recipientes={recipientes}
+          isPremium={isPremium}
+          onClose={() => setShowModal(false)}
+          onSubmit={async ({ bebida, recipiente, cantidad_ml }) => {
+            await addConsumo({
+              bebida,
+              recipiente,
+              cantidad_ml,
+              nivel_sed: 3,
+              estado_animo: 'bueno',
+              fecha_hora: new Date().toISOString()
+            });
+            onIntake(cantidad_ml, bebida, recipiente || 0);
+          }}
+        />
+      )}
     </div>
   );
 };
