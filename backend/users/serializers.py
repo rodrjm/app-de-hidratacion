@@ -2,9 +2,11 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
+from .models import Sugerencia, Feedback
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -27,38 +29,46 @@ class RegisterSerializer(serializers.ModelSerializer):
         help_text='Correo electrónico único del usuario'
     )
 
+    codigo_referido = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=20,
+        help_text='Código de referido opcional del usuario que invitó'
+    )
+
     class Meta:
         model = User
         fields = [
             'username', 'email', 'password', 'password_confirm',
-            'first_name', 'last_name', 'peso', 'edad', 'fecha_nacimiento',
-            'genero', 'nivel_actividad', 'meta_diaria_ml',
+            'first_name', 'last_name', 'peso', 'fecha_nacimiento',
+            'es_fragil_o_insuficiencia_cardiaca', 'genero', 'nivel_actividad', 'meta_diaria_ml',
             'recordar_notificaciones', 'hora_inicio', 'hora_fin',
-            'intervalo_notificaciones'
+            'intervalo_notificaciones', 'codigo_referido'
         ]
         extra_kwargs = {
             'username': {
                 'help_text': 'Nombre de usuario único (mínimo 3 caracteres)'
             },
             'first_name': {
-                'required': False,
-                'help_text': 'Nombre del usuario'
+                'required': True,
+                'help_text': 'Nombre del usuario (obligatorio)'
             },
             'last_name': {
-                'required': False,
-                'help_text': 'Apellido del usuario'
+                'required': True,
+                'help_text': 'Apellido del usuario (obligatorio)'
             },
             'peso': {
-                'required': False,
-                'help_text': 'Peso en kilogramos (20-300 kg)'
-            },
-            'edad': {
-                'required': False,
-                'help_text': 'Edad en años (1-120 años)'
+                'required': True,
+                'help_text': 'Peso en kilogramos (obligatorio)'
             },
             'fecha_nacimiento': {
+                'required': True,
+                'help_text': 'Fecha de nacimiento (YYYY-MM-DD) (obligatorio)'
+            },
+            'es_fragil_o_insuficiencia_cardiaca': {
                 'required': False,
-                'help_text': 'Fecha de nacimiento (YYYY-MM-DD)'
+                'help_text': 'Indica si es persona frágil o con insuficiencia cardíaca (solo para >65 años)'
             },
             'genero': {
                 'required': False,
@@ -130,30 +140,70 @@ class RegisterSerializer(serializers.ModelSerializer):
                 'password_confirm': 'Las contraseñas no coinciden.'
             })
 
-        # Calcular meta de hidratación si se proporcionan datos suficientes
-        if attrs.get('peso') and not attrs.get('meta_diaria_ml'):
+        # Calcular meta de hidratación automáticamente
+        if attrs.get('peso') and attrs.get('fecha_nacimiento'):
             # Crear un usuario temporal para calcular la meta
             temp_user = User(
                 peso=attrs.get('peso'),
-                edad=attrs.get('edad'),
-                nivel_actividad=attrs.get('nivel_actividad', 'moderado')
+                fecha_nacimiento=attrs.get('fecha_nacimiento'),
+                es_fragil_o_insuficiencia_cardiaca=attrs.get('es_fragil_o_insuficiencia_cardiaca', False)
             )
             attrs['meta_diaria_ml'] = temp_user.calcular_meta_hidratacion()
 
         return attrs
 
     def create(self, validated_data):
-        """Crea un nuevo usuario con contraseña hasheada."""
+        """Crea un nuevo usuario con contraseña hasheada y recipientes por defecto."""
         # Remover password_confirm de los datos validados
         validated_data.pop('password_confirm', None)
         
-        # Extraer la contraseña
+        # Extraer la contraseña y código de referido
         password = validated_data.pop('password')
+        codigo_referido_usado = validated_data.pop('codigo_referido', None)
         
         # Crear el usuario
         user = User.objects.create_user(
             password=password,
             **validated_data
+        )
+        
+        # Generar código de referido único para el nuevo usuario
+        user.generar_codigo_referido()
+        
+        # Si el usuario usó un código de referido, procesarlo
+        if codigo_referido_usado:
+            try:
+                # Buscar el usuario que tiene ese código
+                referente = User.objects.get(codigo_referido=codigo_referido_usado)
+                # Guardar el código usado
+                user.codigo_referido_usado = codigo_referido_usado
+                user.save(update_fields=['codigo_referido_usado'])
+                # Incrementar contador de referidos verificados del referente
+                referente.referidos_verificados += 1
+                referente.save(update_fields=['referidos_verificados'])
+            except User.DoesNotExist:
+                # Código de referido inválido, simplemente ignorarlo
+                pass
+        
+        # Crear recipientes por defecto (250ml y 500ml)
+        from consumos.models import Recipiente
+        
+        Recipiente.objects.create(
+            usuario=user,
+            nombre='Taza/Vaso',
+            cantidad_ml=250,
+            color='#3B82F6',
+            icono='cup',
+            es_favorito=True
+        )
+        
+        Recipiente.objects.create(
+            usuario=user,
+            nombre='Botella/Termo pequeño',
+            cantidad_ml=500,
+            color='#10B981',
+            icono='bottle',
+            es_favorito=True
         )
         
         return user
@@ -165,6 +215,7 @@ class UserSerializer(serializers.ModelSerializer):
     Excluye campos sensibles como la contraseña.
     """
     nombre_completo = serializers.CharField(source='get_nombre_completo', read_only=True)
+    edad = serializers.IntegerField(source='edad_calculada', read_only=True)
     meta_calculada = serializers.SerializerMethodField()
     es_activo_hoy = serializers.SerializerMethodField()
 
@@ -180,7 +231,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'fecha_creacion', 'fecha_actualizacion',
-            'ultimo_acceso', 'es_premium'
+            'ultimo_acceso', 'es_premium', 'edad'
         ]
 
     def get_meta_calculada(self, obj):
@@ -195,19 +246,48 @@ class UserSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Serializer personalizado para el login que incluye información adicional del usuario.
+    Permite autenticación con email en lugar de username.
     """
-    username_field = 'username'
+    username_field = 'email'  # Cambiar a email para autenticación
 
     def validate(self, attrs):
-        """Valida las credenciales y actualiza el último acceso."""
-        data = super().validate(attrs)
+        """Valida las credenciales usando email y actualiza el último acceso."""
+        # Obtener email y password
+        email = attrs.get('email')
+        password = attrs.get('password')
+        
+        if not email or not password:
+            raise serializers.ValidationError('Debe incluir "email" y "password".')
+        
+        # Buscar usuario por email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError('No se encontró un usuario con este correo electrónico.')
+        
+        # Verificar contraseña
+        if not user.check_password(password):
+            raise serializers.ValidationError('Contraseña incorrecta.')
+        
+        if not user.is_active:
+            raise serializers.ValidationError('Esta cuenta está desactivada.')
+        
+        # Asignar usuario para que el método get_token pueda usarlo
+        self.user = user
         
         # Actualizar último acceso
-        self.user.ultimo_acceso = self.user.fecha_actualizacion
-        self.user.save(update_fields=['ultimo_acceso'])
+        user.ultimo_acceso = timezone.now()
+        user.save(update_fields=['ultimo_acceso'])
+        
+        # Generar tokens
+        refresh = self.get_token(user)
+        data = {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
         
         # Agregar información del usuario a la respuesta
-        user_serializer = UserSerializer(self.user)
+        user_serializer = UserSerializer(user)
         data['user'] = user_serializer.data
         
         return data
@@ -286,11 +366,13 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """
     meta_calculada = serializers.SerializerMethodField()
 
+    edad = serializers.IntegerField(source='edad_calculada', read_only=True)
+
     class Meta:
         model = User
         fields = [
             'first_name', 'last_name', 'peso', 'edad', 'fecha_nacimiento',
-            'genero', 'nivel_actividad', 'meta_diaria_ml', 'meta_calculada',
+            'es_fragil_o_insuficiencia_cardiaca', 'genero', 'nivel_actividad', 'meta_diaria_ml', 'meta_calculada',
             'recordar_notificaciones', 'hora_inicio', 'hora_fin',
             'intervalo_notificaciones'
         ]
@@ -302,18 +384,105 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Valida y recalcula la meta de hidratación si es necesario."""
         # Si se actualizan datos que afectan la meta, recalcular
-        if any(field in attrs for field in ['peso', 'edad', 'nivel_actividad']):
+        if any(field in attrs for field in ['peso', 'fecha_nacimiento', 'es_fragil_o_insuficiencia_cardiaca']):
             peso = attrs.get('peso', self.instance.peso if self.instance else None)
-            edad = attrs.get('edad', self.instance.edad if self.instance else None)
-            nivel_actividad = attrs.get('nivel_actividad', 
-                                     self.instance.nivel_actividad if self.instance else 'moderado')
+            fecha_nacimiento = attrs.get('fecha_nacimiento', self.instance.fecha_nacimiento if self.instance else None)
+            es_fragil = attrs.get('es_fragil_o_insuficiencia_cardiaca', 
+                                self.instance.es_fragil_o_insuficiencia_cardiaca if self.instance else False)
             
-            if peso:
+            if peso and fecha_nacimiento:
                 temp_user = User(
                     peso=peso,
-                    edad=edad,
-                    nivel_actividad=nivel_actividad
+                    fecha_nacimiento=fecha_nacimiento,
+                    es_fragil_o_insuficiencia_cardiaca=es_fragil
                 )
                 attrs['meta_diaria_ml'] = temp_user.calcular_meta_hidratacion()
 
         return attrs
+
+
+class SugerenciaSerializer(serializers.ModelSerializer):
+    """
+    Serializer para crear sugerencias de bebidas y actividades.
+    Solo disponible para usuarios premium.
+    """
+    
+    class Meta:
+        model = Sugerencia
+        fields = ['id', 'tipo', 'nombre', 'comentarios', 'intensidad_estimada', 'fecha_creacion']
+        read_only_fields = ['id', 'fecha_creacion']
+    
+    def validate_tipo(self, value):
+        """Valida que el tipo sea válido."""
+        if value not in ['bebida', 'actividad']:
+            raise serializers.ValidationError('El tipo debe ser "bebida" o "actividad".')
+        return value
+    
+    def validate_nombre(self, value):
+        """Valida que el nombre no esté vacío."""
+        if not value or not value.strip():
+            raise serializers.ValidationError('El nombre es requerido.')
+        if len(value.strip()) < 2:
+            raise serializers.ValidationError('El nombre debe tener al menos 2 caracteres.')
+        return value.strip()
+    
+    def validate_intensidad_estimada(self, value):
+        """Valida que la intensidad sea válida si se proporciona."""
+        if value and value not in ['baja', 'media', 'alta']:
+            raise serializers.ValidationError('La intensidad debe ser "baja", "media" o "alta".')
+        return value
+    
+    def validate(self, attrs):
+        """Valida y establece valores por defecto."""
+        tipo = attrs.get('tipo')
+        intensidad = attrs.get('intensidad_estimada')
+        
+        # Para actividades, si no se proporciona intensidad, usar 'media' por defecto
+        if tipo == 'actividad' and not intensidad:
+            attrs['intensidad_estimada'] = 'media'
+        
+        if tipo == 'bebida' and intensidad:
+            raise serializers.ValidationError({
+                'intensidad_estimada': 'La intensidad estimada solo es válida para actividades.'
+            })
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Crea una nueva sugerencia asociada al usuario actual."""
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['usuario'] = request.user
+        return super().create(validated_data)
+
+
+class FeedbackSerializer(serializers.ModelSerializer):
+    """
+    Serializer para crear feedback general de los usuarios.
+    """
+    
+    class Meta:
+        model = Feedback
+        fields = ['id', 'tipo', 'mensaje', 'fecha_creacion']
+        read_only_fields = ['id', 'fecha_creacion']
+    
+    def validate_tipo(self, value):
+        """Valida que el tipo sea válido."""
+        if value not in ['idea_sugerencia', 'reporte_error', 'pregunta_general']:
+            raise serializers.ValidationError('El tipo de feedback no es válido.')
+        return value
+    
+    def validate_mensaje(self, value):
+        """Valida que el mensaje no esté vacío."""
+        if not value or not value.strip():
+            raise serializers.ValidationError('El mensaje es requerido.')
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError('El mensaje debe tener al menos 10 caracteres.')
+        return value.strip()
+    
+    def create(self, validated_data):
+        """Crea un nuevo feedback asociado al usuario actual."""
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['usuario'] = request.user
+        return super().create(validated_data)

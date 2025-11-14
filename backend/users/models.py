@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from datetime import date
+import secrets
+import string
 
 
 class User(AbstractUser):
@@ -14,11 +17,11 @@ class User(AbstractUser):
         help_text='Dirección de correo electrónico única del usuario'
     )
     peso = models.FloatField(
-        validators=[MinValueValidator(20.0), MaxValueValidator(300.0)],
+        validators=[MinValueValidator(1.0), MaxValueValidator(500.0)],
         verbose_name='Peso (kg)',
-        help_text='Peso del usuario en kilogramos (20-300 kg)',
-        null=True,
-        blank=True
+        help_text='Peso del usuario en kilogramos',
+        null=False,
+        blank=False
     )
     edad = models.PositiveIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(120)],
@@ -35,6 +38,13 @@ class User(AbstractUser):
     fecha_nacimiento = models.DateField(
         verbose_name='Fecha de nacimiento',
         help_text='Fecha de nacimiento del usuario',
+        null=False,
+        blank=False
+    )
+    es_fragil_o_insuficiencia_cardiaca = models.BooleanField(
+        default=False,
+        verbose_name='Persona frágil o con insuficiencia cardíaca',
+        help_text='Indica si la persona es frágil o tiene insuficiencia cardíaca (solo para mayores de 65 años)',
         null=True,
         blank=True
     )
@@ -106,6 +116,32 @@ class User(AbstractUser):
         verbose_name='Último acceso',
         help_text='Fecha y hora del último acceso del usuario'
     )
+    # Campos de referidos
+    codigo_referido = models.CharField(
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='Código de referido',
+        help_text='Código único del usuario para referir a otros'
+    )
+    codigo_referido_usado = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        verbose_name='Código de referido usado',
+        help_text='Código de referido que el usuario usó al registrarse'
+    )
+    referidos_verificados = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Referidos verificados',
+        help_text='Número de referidos que se han registrado y verificado con este código'
+    )
+    recompensas_reclamadas = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Recompensas reclamadas',
+        help_text='Número de recompensas de referidos que el usuario ha reclamado'
+    )
 
     class Meta:
         verbose_name = 'Usuario'
@@ -119,48 +155,156 @@ class User(AbstractUser):
         """Retorna el nombre completo del usuario."""
         return f"{self.first_name} {self.last_name}".strip() or self.username
 
+    def generar_codigo_referido(self):
+        """
+        Genera un código de referido único y aleatorio.
+        Formato: TOMA_ seguido de 8 caracteres alfanuméricos aleatorios.
+        """
+        if self.codigo_referido:
+            return self.codigo_referido
+        
+        # Generar código único
+        while True:
+            # Generar 8 caracteres alfanuméricos aleatorios
+            caracteres = string.ascii_uppercase + string.digits
+            codigo_sufijo = ''.join(secrets.choice(caracteres) for _ in range(8))
+            codigo = f"TOMA_{codigo_sufijo}"
+            
+            # Verificar que no exista
+            if not User.objects.filter(codigo_referido=codigo).exists():
+                self.codigo_referido = codigo
+                self.save(update_fields=['codigo_referido'])
+                return codigo
+
+    def obtener_referidos_pendientes(self):
+        """
+        Retorna el número de referidos verificados que aún no han generado una recompensa.
+        Cada 3 referidos = 1 recompensa disponible.
+        """
+        referidos_disponibles = self.referidos_verificados - (self.recompensas_reclamadas * 3)
+        return max(0, referidos_disponibles)
+
+    def tiene_recompensa_disponible(self):
+        """Verifica si el usuario tiene una recompensa disponible (3 referidos verificados)."""
+        return self.obtener_referidos_pendientes() >= 3
+
+    @property
+    def edad_calculada(self):
+        """
+        Calcula la edad del usuario basándose en su fecha de nacimiento.
+        Retorna None si no hay fecha de nacimiento.
+        """
+        if not self.fecha_nacimiento:
+            # Si no hay fecha_nacimiento pero hay edad (datos antiguos), usar edad
+            return self.edad
+        today = date.today()
+        edad = today.year - self.fecha_nacimiento.year
+        # Ajustar si aún no ha cumplido años este año
+        if today.month < self.fecha_nacimiento.month or (today.month == self.fecha_nacimiento.month and today.day < self.fecha_nacimiento.day):
+            edad -= 1
+        return edad
+
     def calcular_meta_hidratacion(self):
         """
-        Calcula la meta de hidratación basada en peso, edad y nivel de actividad.
-        Fórmula básica: 35ml por kg de peso + ajustes por edad y actividad.
+        Calcula la meta de hidratación basada en peso y edad según las nuevas reglas:
+        
+        NIÑOS Y BEBES (0-13 años):
+        - 0-10 kg: 100 ml/kg
+        - 11-20 kg: 50 ml/kg
+        - >20 kg: 20 ml/kg
+        
+        ADOLESCENTES Y ADULTOS (14-65 años):
+        - 14-50 años: 30-35 ml/kg (promedio 32.5 ml/kg)
+        - 51-65 años: 25-30 ml/kg (promedio 27.5 ml/kg)
+        
+        ADULTOS MAYORES (>65 años):
+        - Saludable: 25 ml/kg
+        - Frágil o con insuficiencia cardíaca: 20 ml/kg
         """
         if not self.peso:
             return self.meta_diaria_ml
 
-        # Base: 35ml por kg de peso
-        meta_base = self.peso * 35
+        edad_actual = self.edad_calculada
+        if not edad_actual:
+            # Si no hay edad, usar valor por defecto
+            return self.meta_diaria_ml
 
-        # Ajuste por edad
-        if self.edad:
-            if self.edad < 18:
-                factor_edad = 1.0
-            elif self.edad < 65:
-                factor_edad = 1.0
+        peso_kg = self.peso
+        ml_por_kg = 0
+
+        # NIÑOS Y BEBES (0-13 años)
+        if edad_actual <= 13:
+            if peso_kg <= 10:
+                ml_por_kg = 100
+            elif peso_kg <= 20:
+                ml_por_kg = 50
             else:
-                factor_edad = 0.9
+                ml_por_kg = 20
+        
+        # ADOLESCENTES Y ADULTOS (14-65 años)
+        elif edad_actual <= 65:
+            if edad_actual <= 50:
+                # 14-50 años: 30-35 ml/kg (promedio 32.5)
+                ml_por_kg = 32.5
+            else:
+                # 51-65 años: 25-30 ml/kg (promedio 27.5)
+                ml_por_kg = 27.5
+        
+        # ADULTOS MAYORES (>65 años)
         else:
-            factor_edad = 1.0
+            if self.es_fragil_o_insuficiencia_cardiaca:
+                # Frágil o con insuficiencia cardíaca: 20 ml/kg
+                ml_por_kg = 20
+            else:
+                # Saludable: 25 ml/kg
+                ml_por_kg = 25
 
-        # Ajuste por nivel de actividad
-        factores_actividad = {
-            'sedentario': 1.0,
-            'ligero': 1.1,
-            'moderado': 1.2,
-            'intenso': 1.4,
-            'muy_intenso': 1.6,
-        }
-        factor_actividad = factores_actividad.get(self.nivel_actividad, 1.2)
-
-        meta_calculada = int(meta_base * factor_edad * factor_actividad)
+        meta_calculada = int(peso_kg * ml_por_kg)
         
         # Asegurar que esté dentro de límites razonables
-        meta_calculada = max(500, min(meta_calculada, 10000))
+        meta_calculada = max(100, min(meta_calculada, 10000))
         
         return meta_calculada
 
     def actualizar_meta_hidratacion(self):
         """Actualiza la meta de hidratación basada en los datos del usuario."""
         self.meta_diaria_ml = self.calcular_meta_hidratacion()
+        self.save(update_fields=['meta_diaria_ml'])
+    
+    def actualizar_meta_hidratacion_con_actividades(self):
+        """
+        Actualiza la meta de hidratación considerando las actividades del día.
+        Suma el PSE de todas las actividades del día a la meta base.
+        """
+        from django.utils import timezone
+        from actividades.models import Actividad
+        
+        # Calcular meta base
+        meta_base = self.calcular_meta_hidratacion()
+        
+        # Obtener fecha actual en timezone del usuario (o UTC si no hay timezone)
+        hoy = timezone.now().date()
+        
+        # Obtener todas las actividades del día
+        from datetime import datetime as dt, time as dt_time
+        inicio_dia = timezone.make_aware(dt.combine(hoy, dt_time.min))
+        fin_dia = timezone.make_aware(dt.combine(hoy, dt_time.max))
+        
+        actividades_hoy = Actividad.objects.filter(
+            usuario=self,
+            fecha_hora__range=[inicio_dia, fin_dia]
+        )
+        
+        # Sumar PSE de todas las actividades del día
+        pse_total = sum(actividad.pse_calculado for actividad in actividades_hoy)
+        
+        # Meta final = meta base + PSE total
+        meta_final = meta_base + pse_total
+        
+        # Asegurar que esté dentro de límites razonables
+        meta_final = max(500, min(meta_final, 15000))
+        
+        self.meta_diaria_ml = int(meta_final)
         self.save(update_fields=['meta_diaria_ml'])
 
     def es_usuario_activo_hoy(self):
@@ -169,3 +313,125 @@ class User(AbstractUser):
         
         hoy = timezone.now().date()
         return self.ultimo_acceso and self.ultimo_acceso.date() == hoy
+
+
+class Sugerencia(models.Model):
+    """
+    Modelo para almacenar sugerencias de bebidas y actividades de usuarios premium.
+    """
+    TIPO_CHOICES = [
+        ('bebida', 'Bebida'),
+        ('actividad', 'Actividad'),
+    ]
+    
+    INTENSIDAD_CHOICES = [
+        ('baja', 'Baja'),
+        ('media', 'Media'),
+        ('alta', 'Alta'),
+    ]
+    
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sugerencias',
+        verbose_name='Usuario',
+        help_text='Usuario que realizó la sugerencia'
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        verbose_name='Tipo de sugerencia',
+        help_text='Tipo de sugerencia (bebida o actividad)'
+    )
+    nombre = models.CharField(
+        max_length=200,
+        verbose_name='Nombre',
+        help_text='Nombre de la bebida o actividad sugerida'
+    )
+    comentarios = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Comentarios',
+        help_text='Comentarios adicionales o ingredientes (opcional)'
+    )
+    intensidad_estimada = models.CharField(
+        max_length=10,
+        choices=INTENSIDAD_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name='Intensidad estimada',
+        help_text='Intensidad estimada (solo para actividades)'
+    )
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de creación',
+        help_text='Fecha y hora de creación de la sugerencia'
+    )
+    procesada = models.BooleanField(
+        default=False,
+        verbose_name='Procesada',
+        help_text='Indica si la sugerencia ha sido procesada por un administrador'
+    )
+    
+    class Meta:
+        verbose_name = 'Sugerencia'
+        verbose_name_plural = 'Sugerencias'
+        ordering = ['-fecha_creacion']
+        indexes = [
+            models.Index(fields=['usuario', 'tipo']),
+            models.Index(fields=['procesada']),
+        ]
+    
+    def __str__(self):
+        return f"{self.usuario.username} - {self.tipo}: {self.nombre}"
+
+
+class Feedback(models.Model):
+    """
+    Modelo para almacenar feedback general de los usuarios sobre la aplicación.
+    """
+    TIPO_CHOICES = [
+        ('idea_sugerencia', 'Idea/Sugerencia'),
+        ('reporte_error', 'Reporte de Error'),
+        ('pregunta_general', 'Pregunta General'),
+    ]
+    
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='feedbacks',
+        verbose_name='Usuario',
+        help_text='Usuario que envió el feedback'
+    )
+    tipo = models.CharField(
+        max_length=30,
+        choices=TIPO_CHOICES,
+        verbose_name='Tipo de feedback',
+        help_text='Tipo de feedback (idea, error, pregunta)'
+    )
+    mensaje = models.TextField(
+        verbose_name='Mensaje',
+        help_text='Mensaje del usuario'
+    )
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de creación',
+        help_text='Fecha y hora de creación del feedback'
+    )
+    procesado = models.BooleanField(
+        default=False,
+        verbose_name='Procesado',
+        help_text='Indica si el feedback ha sido procesado por el equipo'
+    )
+    
+    class Meta:
+        verbose_name = 'Feedback'
+        verbose_name_plural = 'Feedbacks'
+        ordering = ['-fecha_creacion']
+        indexes = [
+            models.Index(fields=['usuario', 'tipo']),
+            models.Index(fields=['procesado']),
+        ]
+    
+    def __str__(self):
+        return f"{self.usuario.username} - {self.get_tipo_display()}: {self.mensaje[:50]}..."
