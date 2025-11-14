@@ -271,3 +271,6 @@ temp/
 
 # Local development
 local_settings.py
+
+# Documentation (do not version control docs content)
+/docs/
