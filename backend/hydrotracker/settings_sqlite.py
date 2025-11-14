@@ -42,6 +42,21 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Configuración de Django Debug Toolbar (solo en desarrollo)
+if DEBUG:
+    INTERNAL_IPS = [
+        '127.0.0.1',
+        'localhost',
+    ]
+    
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+    
+    # Configuración adicional para debug toolbar
+    DEBUG_TOOLBAR_CONFIG = {
+        'SHOW_TEMPLATE_CONTEXT': True,
+        'SHOW_COLLAPSED': True,
+    }
+
 print("🔧 Usando configuración SQLite")
 print("📁 Base de datos: db.sqlite3")
 print("💡 Para usar PostgreSQL, cambia a settings.py")

@@ -12,6 +12,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('users.urls')),
     path('api/', include('consumos.urls')),
+    path('api/', include('actividades.urls')),
     path('api/health/', health_check, name='health_check'),
     
     # API Documentation
@@ -22,5 +23,9 @@ urlpatterns = [
 
 # Serve media files in development
 if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns = [
+        path('__debug__/', include(debug_toolbar.urls)),
+    ] + urlpatterns
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
