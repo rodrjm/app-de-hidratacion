@@ -1,11 +1,15 @@
-// Tipos principales de la aplicación HydroTracker
+// Tipos principales de la aplicación Tomá bien, che!
 
 export interface User {
   id: number;
   username: string;
   email: string;
-  peso?: number;
-  edad?: number;
+  first_name?: string;
+  last_name?: string;
+  peso: number;
+  edad?: number; // Calculada automáticamente desde fecha_nacimiento (read-only)
+  fecha_nacimiento: string; // YYYY-MM-DD (obligatorio)
+  es_fragil_o_insuficiencia_cardiaca?: boolean;
   es_premium: boolean;
   meta_diaria_ml: number;
   nivel_actividad: 'sedentario' | 'ligero' | 'moderado' | 'intenso' | 'muy_intenso';
@@ -20,6 +24,7 @@ export interface Bebida {
   descripcion?: string;
   es_agua: boolean;
   es_premium: boolean;
+  es_alcoholica?: boolean;
   calorias_por_ml: number;
   activa: boolean;
   fecha_creacion: string;
@@ -40,14 +45,43 @@ export interface Consumo {
   id: number;
   cantidad_ml: number;
   cantidad_hidratacion_efectiva: number;
+  deshidratacion_neta_ml?: number;
+  agua_compensacion_recomendada_ml?: number;
   fecha_hora: string;
-  bebida: Bebida;
-  recipiente: Recipiente;
+  bebida: Bebida | number;
+  recipiente: Recipiente | number | null;
   usuario: number;
   nivel_sed?: number;
   estado_animo?: number;
   notas?: string;
   ubicacion?: string;
+  // Campos adicionales del serializer
+  bebida_nombre?: string;
+  recipiente_nombre?: string;
+  hidratacion_efectiva_ml?: number;
+  fecha_formateada?: string;
+  hora_formateada?: string;
+}
+
+export interface Actividad {
+  id: number;
+  usuario: number;
+  tipo_actividad: 'correr' | 'ciclismo' | 'natacion' | 'futbol_rugby' | 'baloncesto_voley' | 'gimnasio' | 'crossfit_hiit' | 'padel_tenis' | 'baile_aerobico' | 'caminata_rapida' | 'pilates' | 'caminata' | 'yoga_hatha' | 'yoga_bikram';
+  tipo_actividad_display?: string;
+  duracion_minutos: number;
+  intensidad: 'baja' | 'media' | 'alta';
+  intensidad_display?: string;
+  fecha_hora: string;
+  pse_calculado: number;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+}
+
+export interface ActividadForm {
+  tipo_actividad: 'correr' | 'ciclismo' | 'natacion' | 'futbol_rugby' | 'baloncesto_voley' | 'gimnasio' | 'crossfit_hiit' | 'padel_tenis' | 'baile_aerobico' | 'caminata_rapida' | 'pilates' | 'caminata' | 'yoga_hatha' | 'yoga_bikram';
+  duracion_minutos: number;
+  intensidad: 'baja' | 'media' | 'alta';
+  fecha_hora?: string;
 }
 
 export interface MetaDiaria {
@@ -115,6 +149,8 @@ export interface Tendencias {
     fecha: string;
     valor: number;
   }>;
+  total_anterior?: number;
+  total_actual?: number;
 }
 
 export interface Insights {
@@ -158,28 +194,33 @@ export interface MetaPersonalizada {
 
 // Tipos para formularios
 export interface LoginForm {
-  username: string;
+  email: string;
   password: string;
 }
 
 export interface RegisterForm {
-  username: string;
   email: string;
+  first_name: string;
+  last_name: string;
   password: string;
   confirmPassword: string;
-  peso?: number;
-  edad?: number;
-  nivel_actividad: string;
+  peso: number;
+  peso_unidad: 'kg' | 'lb'; // Unidad de peso
+  fecha_nacimiento: string; // YYYY-MM-DD (obligatorio)
+  es_fragil_o_insuficiencia_cardiaca?: boolean; // Solo para >65 años
+  codigo_referido?: string; // Código de referido opcional
+  acceptTerms: boolean; // Obligatorio
 }
 
 export interface ConsumoForm {
   bebida: number;
-  recipiente: number;
+  recipiente?: number | null;
   cantidad_ml: number;
   nivel_sed?: number;
-  estado_animo?: number;
+  estado_animo?: string;
   notas?: string;
   ubicacion?: string;
+  fecha_hora?: string;
 }
 
 export interface RecordatorioForm {
@@ -309,11 +350,11 @@ export interface UseEstadisticasReturn {
 
 // Tipos para servicios
 export interface ApiService {
-  get: <T>(url: string, params?: Record<string, any>) => Promise<T>;
-  post: <T>(url: string, data?: any) => Promise<T>;
-  put: <T>(url: string, data?: any) => Promise<T>;
+  get: <T>(url: string, params?: Record<string, string | number | boolean | undefined>) => Promise<T>;
+  post: <T>(url: string, data?: unknown) => Promise<T>;
+  put: <T>(url: string, data?: unknown) => Promise<T>;
   delete: <T>(url: string) => Promise<T>;
-  patch: <T>(url: string, data?: any) => Promise<T>;
+  patch: <T>(url: string, data?: unknown) => Promise<T>;
 }
 
 export interface AuthService {
@@ -356,5 +397,5 @@ export interface PWAInstallPrompt {
 
 export interface ServiceWorkerMessage {
   type: 'CACHE_UPDATED' | 'NOTIFICATION_CLICKED' | 'BACKGROUND_SYNC';
-  payload?: any;
+  payload?: unknown;
 }
