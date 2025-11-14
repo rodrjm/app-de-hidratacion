@@ -31,8 +31,8 @@ class MonetizationService {
   /**
    * Obtener estadísticas de monetización
    */
-  async getMonetizationStats(): Promise<any> {
-    return await apiService.get('/monetization/stats/');
+  async getMonetizationStats(): Promise<Record<string, unknown>> {
+    return await apiService.get<Record<string, unknown>>('/monetization/stats/');
   }
 
   /**
@@ -59,29 +59,29 @@ class MonetizationService {
   /**
    * Obtener bebidas premium
    */
-  async getPremiumBeverages(): Promise<any[]> {
-    return await apiService.get('/premium/beverages/');
+  async getPremiumBeverages(): Promise<Array<Record<string, unknown>>> {
+    return await apiService.get<Array<Record<string, unknown>>>('/premium/beverages/');
   }
 
   /**
    * Obtener recordatorios ilimitados (usuarios premium)
    */
-  async getUnlimitedReminders(): Promise<any[]> {
-    return await apiService.get('/premium/reminders/');
+  async getUnlimitedReminders(): Promise<Array<Record<string, unknown>>> {
+    return await apiService.get<Array<Record<string, unknown>>>('/premium/reminders/');
   }
 
   /**
    * Crear recordatorio premium
    */
-  async createPremiumReminder(reminderData: any): Promise<any> {
-    return await apiService.post('/premium/reminders/', reminderData);
+  async createPremiumReminder(reminderData: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return await apiService.post<Record<string, unknown>>('/premium/reminders/', reminderData);
   }
 
   /**
    * Actualizar recordatorio premium
    */
-  async updatePremiumReminder(id: number, reminderData: any): Promise<any> {
-    return await apiService.put(`/premium/reminders/${id}/`, reminderData);
+  async updatePremiumReminder(id: number, reminderData: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return await apiService.put<Record<string, unknown>>(`/premium/reminders/${id}/`, reminderData);
   }
 
   /**
@@ -94,29 +94,29 @@ class MonetizationService {
   /**
    * Obtener historial detallado de consumos (premium)
    */
-  async getConsumptionHistory(): Promise<any[]> {
-    return await apiService.get('/premium/stats/history/');
+  async getConsumptionHistory(): Promise<Array<Record<string, unknown>>> {
+    return await apiService.get<Array<Record<string, unknown>>>('/premium/stats/history/');
   }
 
   /**
    * Obtener resumen agregado de consumos (premium)
    */
-  async getConsumptionSummary(period: 'daily' | 'weekly' | 'monthly' = 'daily'): Promise<any[]> {
-    return await apiService.get(`/premium/stats/summary/?period=${period}`);
+  async getConsumptionSummary(period: 'daily' | 'weekly' | 'monthly' = 'daily'): Promise<Array<Record<string, unknown>>> {
+    return await apiService.get<Array<Record<string, unknown>>>(`/premium/stats/summary/?period=${period}`);
   }
 
   /**
    * Obtener tendencias de consumo (premium)
    */
-  async getConsumptionTrends(): Promise<any> {
-    return await apiService.get('/premium/stats/trends/');
+  async getConsumptionTrends(): Promise<Record<string, unknown>> {
+    return await apiService.get<Record<string, unknown>>('/premium/stats/trends/');
   }
 
   /**
    * Obtener insights personalizados (premium)
    */
-  async getConsumptionInsights(days: number = 30): Promise<any> {
-    return await apiService.get(`/premium/stats/insights/?days=${days}`);
+  async getConsumptionInsights(days: number = 30): Promise<Record<string, unknown>> {
+    return await apiService.get<Record<string, unknown>>(`/premium/stats/insights/?days=${days}`);
   }
 }
 

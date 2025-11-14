@@ -19,15 +19,50 @@ class AuthService {
    */
   async login(credentials: LoginForm): Promise<LoginResponse> {
     try {
-      const response = await apiService.post<LoginResponse>('/login/', credentials);
+      type LoginBackendResponse = { user: User; access: string; refresh: string };
+      const response = await apiService.post<LoginBackendResponse>('/login/', credentials);
+      
+      // El backend devuelve access y refresh directamente, no dentro de tokens
+      const loginResponse: LoginResponse = {
+        user: response.user,
+        tokens: {
+          access: response.access,
+          refresh: response.refresh
+        }
+      };
       
       // Guardar tokens
-      apiService.setToken(response.tokens.access);
-      localStorage.setItem('refresh_token', response.tokens.refresh);
+      apiService.setToken(loginResponse.tokens.access);
+      localStorage.setItem('refresh_token', loginResponse.tokens.refresh);
       
-      return response;
-    } catch (error) {
-      throw new Error('Credenciales inválidas');
+      return loginResponse;
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: unknown } };
+      
+      // Manejar errores específicos del login
+      if (err.response?.status === 400) {
+        const errorData = err.response.data as Record<string, unknown> | undefined;
+        
+        // Si hay errores específicos de campos
+        if (errorData && 'email' in errorData) {
+          throw new Error('Correo electrónico no encontrado. Verifica tu email.');
+        } else if (errorData && 'password' in errorData) {
+          throw new Error('Contraseña incorrecta. Inténtalo de nuevo.');
+        } else if (errorData && 'non_field_errors' in errorData) {
+          // Error general de credenciales
+          throw new Error('Credenciales inválidas. Verifica tu correo electrónico y contraseña.');
+        } else if (errorData && 'detail' in errorData) {
+          const detail = (errorData as { detail?: unknown }).detail;
+          throw new Error(String(detail));
+        }
+      } else if (err.response?.status === 401) {
+        throw new Error('Credenciales inválidas. Verifica tu correo electrónico y contraseña.');
+      } else if (err.response?.status === 404) {
+        throw new Error('Correo electrónico no encontrado. Verifica tu email.');
+      }
+      
+      // Error genérico si no se puede determinar el tipo específico
+      throw new Error('Error al iniciar sesión. Inténtalo más tarde.');
     }
   }
 
@@ -36,14 +71,28 @@ class AuthService {
    */
   async register(userData: RegisterForm): Promise<RegisterResponse> {
     try {
-      const response = await apiService.post<RegisterResponse>('/register/', userData);
+      type RegisterBackendResponse = { user: User; tokens: { access: string; refresh: string } };
+      const response = await apiService.post<RegisterBackendResponse>('/register/', userData);
+      
+      // El backend devuelve access y refresh directamente, no dentro de tokens
+      const registerResponse: RegisterResponse = {
+        user: response.user,
+        tokens: {
+          access: response.tokens.access,
+          refresh: response.tokens.refresh
+        }
+      };
       
       // Guardar tokens
-      apiService.setToken(response.tokens.access);
-      localStorage.setItem('refresh_token', response.tokens.refresh);
+      apiService.setToken(registerResponse.tokens.access);
+      localStorage.setItem('refresh_token', registerResponse.tokens.refresh);
       
-      return response;
+      return registerResponse;
     } catch (error) {
+      // Propagar el detalle del backend si existe
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error('Error al crear la cuenta');
     }
   }
@@ -53,7 +102,10 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      await apiService.post('/logout/');
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        await apiService.post('/logout/', { refresh_token: refreshToken });
+      }
     } catch (error) {
       // Continuar con el logout aunque falle la petición
       console.warn('Error al cerrar sesión en el servidor:', error);
@@ -204,6 +256,39 @@ class AuthService {
       return response;
     } catch (error) {
       throw new Error('Error al verificar email');
+    }
+  }
+
+  /**
+   * Autenticación con Google
+   */
+  async loginWithGoogle(credential: string): Promise<{ user: User; tokens: { access: string; refresh: string }; is_new_user: boolean }> {
+    try {
+      type GoogleAuthResponse = { 
+        user: User; 
+        access: string; 
+        refresh: string;
+        is_new_user: boolean;
+      };
+      const response = await apiService.post<GoogleAuthResponse>('/users/google-auth/', {
+        credential
+      });
+      
+      // Guardar tokens
+      apiService.setToken(response.access);
+      localStorage.setItem('refresh_token', response.refresh);
+      
+      return {
+        user: response.user,
+        tokens: {
+          access: response.access,
+          refresh: response.refresh
+        },
+        is_new_user: response.is_new_user
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al autenticar con Google';
+      throw new Error(errorMessage);
     }
   }
 }

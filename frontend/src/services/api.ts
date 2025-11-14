@@ -1,8 +1,8 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
 
 // Configuración base de la API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env?.VITE_API_URL ?? 'http://localhost:8000/api';
 
 class ApiService {
   private api: AxiosInstance;
@@ -40,10 +40,32 @@ class ApiService {
       (response) => {
         return response;
       },
-      (error) => {
+      async (error) => {
+        // Manejar errores 401 (No autenticado)
         if (error.response?.status === 401) {
-          this.clearToken();
-          window.location.href = '/login';
+          const currentPath = window.location.pathname;
+          
+          // Solo redirigir si no estamos en login/register y hay token
+          if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+            const hasToken = localStorage.getItem('access_token');
+            
+            // Si hay token pero falla, probablemente expiró - limpiar y redirigir
+            if (hasToken) {
+              this.clearToken();
+              
+              // Evitar múltiples redirecciones con un flag
+              const w = window as unknown as { __redirectingToLogin?: boolean };
+              if (!w.__redirectingToLogin) {
+                w.__redirectingToLogin = true;
+                setTimeout(() => {
+                  w.__redirectingToLogin = false;
+                }, 1000);
+                
+                window.location.href = '/login';
+                return Promise.reject(error);
+              }
+            }
+          }
         }
         
         if (error.response?.status >= 500) {
@@ -77,7 +99,7 @@ class ApiService {
     return this.token;
   }
 
-  public async get<T>(url: string, params?: Record<string, any>): Promise<T> {
+  public async get<T>(url: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
     try {
       const response: AxiosResponse<T> = await this.api.get(url, { params });
       return response.data;
@@ -86,16 +108,16 @@ class ApiService {
     }
   }
 
-  public async post<T>(url: string, data?: any): Promise<T> {
+  public async post<T>(url: string, data?: unknown, config?: { params?: Record<string, string | number | boolean | undefined> }): Promise<T> {
     try {
-      const response: AxiosResponse<T> = await this.api.post(url, data);
+      const response: AxiosResponse<T> = await this.api.post(url, data, config);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
     }
   }
 
-  public async put<T>(url: string, data?: any): Promise<T> {
+  public async put<T>(url: string, data?: unknown): Promise<T> {
     try {
       const response: AxiosResponse<T> = await this.api.put(url, data);
       return response.data;
@@ -104,7 +126,7 @@ class ApiService {
     }
   }
 
-  public async patch<T>(url: string, data?: any): Promise<T> {
+  public async patch<T>(url: string, data?: unknown): Promise<T> {
     try {
       const response: AxiosResponse<T> = await this.api.patch(url, data);
       return response.data;
@@ -122,12 +144,26 @@ class ApiService {
     }
   }
 
-  private handleError(error: any): Error {
-    if (error.response) {
+  private handleError(error: unknown): Error {
+    type ResponseLike = { data?: unknown; status?: number };
+    const err = error as { response?: ResponseLike; request?: unknown };
+    if (err.response) {
       // Error de respuesta del servidor
-      const message = error.response.data?.detail || error.response.data?.message || 'Error del servidor';
+      const data = err.response.data;
+      // Intentar extraer mensajes de validación de DRF (dict de campos)
+      if (err.response.status === 400 && data && typeof data === 'object' && !Array.isArray(data)) {
+        const firstKey = Object.keys(data)[0];
+        const firstVal = data[firstKey];
+        if (Array.isArray(firstVal) && firstVal.length > 0) {
+          return new Error(String(firstVal[0]));
+        }
+        if (typeof firstVal === 'string') {
+          return new Error(firstVal);
+        }
+      }
+      const message = data?.detail || data?.message || 'Error del servidor';
       return new Error(message);
-    } else if (error.request) {
+    } else if (err.request) {
       // Error de red
       return new Error('Error de conexión. Verifica tu internet.');
     } else {
