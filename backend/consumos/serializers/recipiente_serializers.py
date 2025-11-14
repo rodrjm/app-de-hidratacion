@@ -55,8 +55,14 @@ class RecipienteSerializer(serializers.ModelSerializer):
         """
         if value <= 0:
             raise serializers.ValidationError("La cantidad debe ser mayor a 0")
-        
-        if value > 5000:  # 5 litros máximo
-            raise serializers.ValidationError("La cantidad no puede ser mayor a 5000 ml")
-        
+        if value > 5000:
+            raise serializers.ValidationError("La cantidad máxima permitida es 5000 ml")
+        return value
+
+    def validate_color(self, value):
+        """
+        Permite color opcional. Si viene vacío o None, usar el color por defecto del modelo.
+        """
+        if not value or not str(value).strip():
+            return '#3B82F6'
         return value

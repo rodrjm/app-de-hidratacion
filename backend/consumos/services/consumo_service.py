@@ -6,7 +6,9 @@ from django.db.models import Sum, Count, Avg, Max, Min
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
 from django.utils import timezone
 from django.core.cache import cache
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone as dt_timezone
+from zoneinfo import ZoneInfo
+from typing import Optional
 from collections import defaultdict
 
 from ..models import Consumo
@@ -21,17 +23,31 @@ class ConsumoService:
     def __init__(self, user):
         self.user = user
     
-    @cache_user_data(timeout=300)
-    def get_daily_summary(self, fecha=None):
+    def get_daily_summary(self, fecha=None, tz_name: Optional[str] = None):
         """
         Obtiene un resumen diario de consumos con caché.
         """
         if fecha is None:
             fecha = timezone.now().date()
         
+        # Construir límites del día en zona horaria del usuario y convertir a UTC
+        tzinfo = None
+        if tz_name:
+            try:
+                tzinfo = ZoneInfo(tz_name)
+            except Exception:
+                tzinfo = None
+        if tzinfo is None:
+            tzinfo = timezone.get_current_timezone()
+
+        start_local = datetime(fecha.year, fecha.month, fecha.day, 0, 0, 0, 0, tzinfo=tzinfo)
+        end_local = datetime(fecha.year, fecha.month, fecha.day, 23, 59, 59, 999000, tzinfo=tzinfo)
+        start_utc = start_local.astimezone(dt_timezone.utc)
+        end_utc = end_local.astimezone(dt_timezone.utc)
+        
         # Usar select_related para optimizar consultas
         consumos_dia = Consumo.objects.select_related('bebida', 'recipiente').filter(
-            usuario=self.user, fecha_hora__date=fecha
+            usuario=self.user, fecha_hora__range=[start_utc, end_utc]
         )
         
         # Usar una sola consulta de agregación
@@ -164,33 +180,88 @@ class ConsumoService:
             'semanas_detalle': semanas_detalle
         }
     
-    def get_trends(self, period='weekly'):
+    def get_trends(self, period='weekly', tz_name: Optional[str] = None):
         """
         Obtiene tendencias de consumo.
+        Soporta zona horaria del usuario para cálculos precisos.
         """
-        if period == 'weekly':
-            fecha_fin = timezone.now().date()
-            fecha_inicio = fecha_fin - timedelta(days=7)
-        elif period == 'monthly':
-            fecha_fin = timezone.now().date()
-            fecha_inicio = fecha_fin - timedelta(days=30)
+        # Determinar zona horaria
+        tzinfo = None
+        if tz_name:
+            try:
+                tzinfo = ZoneInfo(tz_name)
+            except Exception:
+                tzinfo = None
+        if tzinfo is None:
+            tzinfo = timezone.get_current_timezone()
+        
+        # Obtener fecha/hora actual en la zona del usuario
+        now_local = timezone.now().astimezone(tzinfo)
+        
+        if period == 'daily':
+            # Hoy vs Ayer en zona del usuario
+            hoy_local = now_local.date()
+            ayer_local = hoy_local - timedelta(days=1)
+            
+            # Construir rangos UTC para hoy
+            start_hoy = datetime(hoy_local.year, hoy_local.month, hoy_local.day, 0, 0, 0, 0, tzinfo=tzinfo)
+            end_hoy = datetime(hoy_local.year, hoy_local.month, hoy_local.day, 23, 59, 59, 999000, tzinfo=tzinfo)
+            start_hoy_utc = start_hoy.astimezone(dt_timezone.utc)
+            end_hoy_utc = end_hoy.astimezone(dt_timezone.utc)
+            
+            # Construir rangos UTC para ayer
+            start_ayer = datetime(ayer_local.year, ayer_local.month, ayer_local.day, 0, 0, 0, 0, tzinfo=tzinfo)
+            end_ayer = datetime(ayer_local.year, ayer_local.month, ayer_local.day, 23, 59, 59, 999000, tzinfo=tzinfo)
+            start_ayer_utc = start_ayer.astimezone(dt_timezone.utc)
+            end_ayer_utc = end_ayer.astimezone(dt_timezone.utc)
+            
+            # Consumos de hoy (actual)
+            consumos_actual = Consumo.objects.filter(
+                usuario=self.user,
+                fecha_hora__range=[start_hoy_utc, end_hoy_utc]
+            )
+            
+            # Consumos de ayer (anterior)
+            consumos_anterior = Consumo.objects.filter(
+                usuario=self.user,
+                fecha_hora__range=[start_ayer_utc, end_ayer_utc]
+            )
         else:
-            raise ValueError('Periodo no válido. Use: weekly o monthly')
+            # Para otros períodos, usar ventanas móviles (7/30/365 días) en TZ del usuario y convertir a UTC
+            today_local = now_local.date()
+            if period == 'weekly':
+                window_days = 7
+            elif period == 'monthly':
+                window_days = 30
+            elif period == 'annual':
+                window_days = 365
+            else:
+                raise ValueError('Periodo no válido. Use: daily, weekly, monthly o annual')
+
+            curr_start_local = today_local - timedelta(days=window_days - 1)
+            curr_end_local = today_local
+            prev_end_local = curr_start_local - timedelta(days=1)
+            prev_start_local = prev_end_local - timedelta(days=window_days - 1)
+
+            start_curr = datetime(curr_start_local.year, curr_start_local.month, curr_start_local.day, 0, 0, 0, 0, tzinfo=tzinfo)
+            end_curr = datetime(curr_end_local.year, curr_end_local.month, curr_end_local.day, 23, 59, 59, 999000, tzinfo=tzinfo)
+            start_prev = datetime(prev_start_local.year, prev_start_local.month, prev_start_local.day, 0, 0, 0, 0, tzinfo=tzinfo)
+            end_prev = datetime(prev_end_local.year, prev_end_local.month, prev_end_local.day, 23, 59, 59, 999000, tzinfo=tzinfo)
+
+            start_curr_utc = start_curr.astimezone(dt_timezone.utc)
+            end_curr_utc = end_curr.astimezone(dt_timezone.utc)
+            start_prev_utc = start_prev.astimezone(dt_timezone.utc)
+            end_prev_utc = end_prev.astimezone(dt_timezone.utc)
         
         # Consumos del periodo actual
         consumos_actual = Consumo.objects.filter(
             usuario=self.user,
-            fecha_hora__date__range=[fecha_inicio, fecha_fin]
+                fecha_hora__range=[start_curr_utc, end_curr_utc]
         )
-        
         # Consumos del periodo anterior
-        duracion = fecha_fin - fecha_inicio
-        fecha_inicio_anterior = fecha_inicio - duracion
-        fecha_fin_anterior = fecha_inicio
-        
         consumos_anterior = Consumo.objects.filter(
             usuario=self.user,
-            fecha_hora__date__range=[fecha_inicio_anterior, fecha_fin_anterior]
+                fecha_hora__range=[start_prev_utc, end_prev_utc]
         )
         
         # Calcular totales
@@ -199,10 +270,19 @@ class ConsumoService:
         
         # Calcular cambios
         cambio_ml = total_actual - total_anterior
-        cambio_porcentaje = (cambio_ml / total_anterior * 100) if total_anterior > 0 else 0
+        if total_anterior > 0:
+            cambio_porcentaje = (cambio_ml / total_anterior) * 100
+        else:
+            # Si no hay datos previos, no hay cambio que calcular
+            cambio_porcentaje = None
         
         # Determinar tendencia
-        if cambio_porcentaje > 10:
+        if cambio_porcentaje is None:
+            if total_actual > 0:
+                tendencia = "Sin comparación (sin datos previos)"
+            else:
+                tendencia = "Sin datos"
+        elif cambio_porcentaje > 10:
             tendencia = "Aumento significativo"
         elif cambio_porcentaje > 5:
             tendencia = "Aumento moderado"
@@ -216,7 +296,7 @@ class ConsumoService:
         return {
             'periodo': period,
             'tendencia': tendencia,
-            'cambio_porcentaje': round(cambio_porcentaje, 2),
+            'cambio_porcentaje': round(cambio_porcentaje, 2) if cambio_porcentaje is not None else None,
             'cambio_ml': cambio_ml,
             'total_anterior': total_anterior,
             'total_actual': total_actual

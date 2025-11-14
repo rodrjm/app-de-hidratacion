@@ -11,6 +11,7 @@ from django.db.models import Sum, Count, Avg, Prefetch
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import timedelta, datetime
+from zoneinfo import ZoneInfo
 
 from ..models import Consumo
 from ..serializers.consumo_serializers import (
@@ -29,7 +30,6 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
     queryset = Consumo.objects.select_related(
         'usuario', 'bebida', 'recipiente'
     ).prefetch_related(
-        'bebida__categoria',
         'recipiente__usuario'
     ).all()
     
@@ -71,17 +71,50 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
             except ValueError:
                 pass
         
-        # Filtro por rango de fechas
+        # Filtro por rango de fechas (con soporte de zona horaria)
         fecha_inicio = self.request.query_params.get('fecha_inicio', None)
         fecha_fin = self.request.query_params.get('fecha_fin', None)
-        
-        if fecha_inicio:
+        tz_name = self.request.query_params.get('tz', None)
+
+        def local_day_bounds_to_utc_bounds(local_date_str: str):
+            # Construye inicio y fin del día en la zona local indicada y retorna en UTC
             try:
-                fecha_inicio_obj = timezone.datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-                queryset = queryset.filter(fecha_hora__date__gte=fecha_inicio_obj)
-            except ValueError:
+                y, m, d = map(int, local_date_str.split('-'))
+            except Exception:
+                return None, None
+            # Zona horaria
+            tzinfo = None
+            if tz_name:
+                try:
+                    tzinfo = ZoneInfo(tz_name)
+                except Exception:
+                    tzinfo = None
+            if tzinfo is None:
+                tzinfo = timezone.get_current_timezone()
+
+            start_local = datetime(y, m, d, 0, 0, 0, 0, tzinfo=tzinfo)
+            end_local = datetime(y, m, d, 23, 59, 59, 999000, tzinfo=tzinfo)
+            start_utc = start_local.astimezone(timezone.utc)
+            end_utc = end_local.astimezone(timezone.utc)
+            return start_utc, end_utc
+
+        if fecha_inicio and fecha_fin and tz_name:
+            # Filtrar por rango UTC exacto derivado de fechas locales del usuario
+            try:
+                start_utc, _ = local_day_bounds_to_utc_bounds(fecha_inicio)
+                _, end_utc = local_day_bounds_to_utc_bounds(fecha_fin)
+                if start_utc and end_utc:
+                    queryset = queryset.filter(fecha_hora__range=[start_utc, end_utc])
+            except Exception:
                 pass
-        
+        else:
+            # Comportamiento anterior basado en __date
+            if fecha_inicio:
+                try:
+                    fecha_inicio_obj = timezone.datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                    queryset = queryset.filter(fecha_hora__date__gte=fecha_inicio_obj)
+                except ValueError:
+                    pass
         if fecha_fin:
             try:
                 fecha_fin_obj = timezone.datetime.strptime(fecha_fin, '%Y-%m-%d').date()
@@ -147,14 +180,16 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
     def trends(self, request):
         """
         Retorna tendencias de consumo.
+        Soporta zona horaria del usuario.
         """
         from ..services.consumo_service import ConsumoService
         
         service = ConsumoService(request.user)
         period = request.query_params.get('period', 'weekly')
+        tz_name = request.query_params.get('tz', None)
         
         try:
-            trends = service.get_trends(period)
+            trends = service.get_trends(period, tz_name=tz_name)
             return Response(trends)
         except ValueError as e:
             return Response({

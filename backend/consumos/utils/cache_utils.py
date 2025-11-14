@@ -2,7 +2,7 @@
 Utilidades de caché para optimización de performance.
 """
 
-from django.core.cache import cache
+from django.core.cache import cache, caches
 from django.core.cache.utils import make_template_fragment_key
 from django.conf import settings
 from functools import wraps
@@ -46,8 +46,13 @@ class CacheManager:
         Obtiene un valor del caché o lo calcula y almacena.
         """
         try:
+            # Seleccionar caché por alias con fallback a default
+            try:
+                selected_cache = caches[cache_alias] if cache_alias else cache
+            except Exception:
+                selected_cache = cache
             # Intentar obtener del caché
-            cached_value = cache.get(key, version=None, using=cache_alias)
+            cached_value = selected_cache.get(key)
             if cached_value is not None:
                 logger.debug(f"Cache HIT: {key}")
                 return cached_value
@@ -60,7 +65,7 @@ class CacheManager:
             if timeout is None:
                 timeout = cls.CACHE_TIMEOUTS.get('api_responses', 300)
             
-            cache.set(key, value, timeout=timeout, using=cache_alias)
+            selected_cache.set(key, value, timeout=timeout)
             return value
             
         except Exception as e:
@@ -135,10 +140,27 @@ def cache_result(timeout=None, cache_alias='api', key_prefix=''):
 def cache_user_data(timeout=None):
     """
     Decorador específico para cachear datos de usuario.
+    Soporta métodos que reciben el usuario como argumento o que lo tienen en self.user.
     """
     def decorator(func):
         @wraps(func)
-        def wrapper(self, user, *args, **kwargs):
+        def wrapper(self, *args, **kwargs):
+            # Obtener usuario desde kwargs, args o self.user
+            user = kwargs.get('user')
+            if user is None:
+                # Intentar deducir desde self.user
+                user = getattr(self, 'user', None)
+            if user is None and args:
+                # Si el primer arg es un user, úsalo (por compatibilidad)
+                possible_user = args[0]
+                if hasattr(possible_user, 'id'):
+                    user = possible_user
+                    args = args[1:]
+
+            if user is None or not hasattr(user, 'id'):
+                # Si no se pudo determinar el usuario, ejecutar sin caché para no romper
+                return func(self, *args, **kwargs)
+
             cache_key = CacheManager.get_cache_key(
                 f"user:{user.id}:{func.__name__}",
                 *args,
@@ -147,7 +169,7 @@ def cache_user_data(timeout=None):
             
             return CacheManager.get_or_set(
                 cache_key,
-                lambda: func(self, user, *args, **kwargs),
+                lambda: func(self, *args, **kwargs),
                 timeout=timeout or CacheManager.CACHE_TIMEOUTS.get('user_stats', 300),
                 cache_alias='api'
             )
@@ -167,7 +189,11 @@ class QueryCache:
         """
         try:
             # Intentar obtener del caché
-            cached_data = cache.get(cache_key, using='api')
+            try:
+                selected_cache = caches['api']
+            except Exception:
+                selected_cache = cache
+            cached_data = selected_cache.get(cache_key)
             if cached_data is not None:
                 logger.debug(f"QueryCache HIT: {cache_key}")
                 return cached_data
@@ -175,7 +201,7 @@ class QueryCache:
             # Ejecutar consulta y cachear
             logger.debug(f"QueryCache MISS: {cache_key}")
             data = list(queryset)
-            cache.set(cache_key, data, timeout=timeout, using='api')
+            selected_cache.set(cache_key, data, timeout=timeout)
             return data
             
         except Exception as e:
@@ -188,7 +214,11 @@ class QueryCache:
         Cachea resultados de agregaciones.
         """
         try:
-            cached_result = cache.get(cache_key, using='api')
+            try:
+                selected_cache = caches['api']
+            except Exception:
+                selected_cache = cache
+            cached_result = selected_cache.get(cache_key)
             if cached_result is not None:
                 logger.debug(f"AggregationCache HIT: {cache_key}")
                 return cached_result
@@ -199,7 +229,7 @@ class QueryCache:
                 count=Count('id'),
                 avg=Avg('cantidad_ml')
             )
-            cache.set(cache_key, result, timeout=timeout, using='api')
+            selected_cache.set(cache_key, result, timeout=timeout)
             return result
             
         except Exception as e:

@@ -4,6 +4,7 @@ Serializers para el modelo Consumo.
 
 from rest_framework import serializers
 from django.utils import timezone
+from zoneinfo import ZoneInfo
 from ..models import Consumo
 
 
@@ -21,11 +22,27 @@ class ConsumoSerializer(serializers.ModelSerializer):
         model = Consumo
         fields = [
             'id', 'cantidad_ml', 'bebida', 'bebida_nombre', 'recipiente',
-            'recipiente_nombre', 'hidratacion_efectiva_ml', 'fecha_hora',
+            'recipiente_nombre', 'hidratacion_efectiva_ml', 'deshidratacion_neta_ml',
+            'agua_compensacion_recomendada_ml', 'fecha_hora',
             'fecha_formateada', 'hora_formateada', 'nivel_sed', 'estado_animo',
             'notas', 'ubicacion', 'fecha_creacion'
         ]
-        read_only_fields = ['id', 'fecha_creacion']
+        read_only_fields = ['id', 'fecha_creacion', 'deshidratacion_neta_ml', 'agua_compensacion_recomendada_ml']
+
+    def _get_user_timezone(self):
+        """
+        Obtiene la zona horaria del usuario desde el contexto de la request.
+        """
+        request = self.context.get('request')
+        if request:
+            tz_name = request.query_params.get('tz')
+            if tz_name:
+                try:
+                    return ZoneInfo(tz_name)
+                except Exception:
+                    pass
+        # Si no hay zona horaria en el request, usar la zona horaria actual de Django
+        return timezone.get_current_timezone()
 
     def get_hidratacion_efectiva_ml(self, obj):
         """
@@ -35,15 +52,19 @@ class ConsumoSerializer(serializers.ModelSerializer):
 
     def get_fecha_formateada(self, obj):
         """
-        Retorna la fecha formateada.
+        Retorna la fecha formateada en la zona horaria del usuario.
         """
-        return obj.fecha_hora.strftime('%Y-%m-%d')
+        tz = self._get_user_timezone()
+        fecha_local = timezone.localtime(obj.fecha_hora, timezone=tz)
+        return fecha_local.strftime('%Y-%m-%d')
 
     def get_hora_formateada(self, obj):
         """
-        Retorna la hora formateada.
+        Retorna la hora formateada en la zona horaria del usuario.
         """
-        return obj.fecha_hora.strftime('%H:%M')
+        tz = self._get_user_timezone()
+        fecha_local = timezone.localtime(obj.fecha_hora, timezone=tz)
+        return fecha_local.strftime('%H:%M')
 
 
 class ConsumoCreateSerializer(serializers.ModelSerializer):
@@ -68,10 +89,17 @@ class ConsumoCreateSerializer(serializers.ModelSerializer):
     def validate_fecha_hora(self, value):
         """
         Valida que la fecha no sea futura.
+        Si la fecha viene sin zona horaria (naive), se asume que es UTC.
+        Si viene con zona horaria, se mantiene.
         """
+        # Si la fecha es naive (sin timezone), asumir que es UTC
+        if timezone.is_naive(value):
+            value = timezone.make_aware(value, timezone.utc)
+        
         if value > timezone.now():
             raise serializers.ValidationError("La fecha no puede ser futura")
         return value
+    
 
 
 class ConsumoStatsSerializer(serializers.Serializer):

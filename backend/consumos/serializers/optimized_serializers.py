@@ -13,7 +13,7 @@ class OptimizedBebidaSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Bebida
-        fields = ['id', 'nombre', 'factor_hidratacion', 'es_agua', 'es_premium', 'activa']
+        fields = ['id', 'nombre', 'factor_hidratacion', 'es_agua', 'es_premium', 'es_alcoholica', 'activa']
         read_only_fields = ['id']
 
 
@@ -38,6 +38,7 @@ class OptimizedConsumoSerializer(serializers.ModelSerializer):
         model = Consumo
         fields = [
             'id', 'cantidad_ml', 'cantidad_hidratacion_efectiva',
+            'deshidratacion_neta_ml', 'agua_compensacion_recomendada_ml',
             'fecha_hora', 'bebida', 'recipiente', 'nivel_sed',
             'estado_animo', 'notas', 'ubicacion'
         ]

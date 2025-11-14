@@ -18,6 +18,7 @@ from .premium_views import (
 from .stats_views import (
     ConsumoHistoryView, ConsumoSummaryView, ConsumoTrendsView, ConsumoInsightsView
 )
+from .export_views import ConsumoExportView
 
 __all__ = [
     # Vistas básicas
@@ -32,5 +33,7 @@ __all__ = [
     'PremiumGoalView', 'PremiumBeverageListView', 'PremiumReminderViewSet',
     
     # Vistas de estadísticas
-    'ConsumoHistoryView', 'ConsumoSummaryView', 'ConsumoTrendsView', 'ConsumoInsightsView'
+    'ConsumoHistoryView', 'ConsumoSummaryView', 'ConsumoTrendsView', 'ConsumoInsightsView',
+    # Vistas de exportación
+    'ConsumoExportView'
 ]

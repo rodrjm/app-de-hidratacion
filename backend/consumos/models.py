@@ -48,6 +48,11 @@ class Bebida(models.Model):
         verbose_name='Es Premium',
         help_text='Indica si la bebida es exclusiva para usuarios premium'
     )
+    es_alcoholica = models.BooleanField(
+        default=False,
+        verbose_name='Es Alcohólica',
+        help_text='Indica si la bebida es alcohólica (tiene impacto negativo en el balance hídrico)'
+    )
     fecha_creacion = models.DateTimeField(
         auto_now_add=True,
         verbose_name='Fecha de creación'
@@ -147,6 +152,16 @@ class Consumo(models.Model):
         verbose_name='Hidratación efectiva (ml)',
         help_text='Cantidad de hidratación efectiva considerando el factor de la bebida'
     )
+    deshidratacion_neta_ml = models.IntegerField(
+        default=0,
+        verbose_name='Deshidratación neta (ml)',
+        help_text='Cantidad de deshidratación neta para bebidas alcohólicas (negativo indica pérdida de hidratación)'
+    )
+    agua_compensacion_recomendada_ml = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Agua de compensación recomendada (ml)',
+        help_text='Cantidad de agua pura recomendada para compensar la deshidratación neta'
+    )
     fecha_hora = models.DateTimeField(
         verbose_name='Fecha y hora',
         help_text='Fecha y hora del consumo'
@@ -216,11 +231,28 @@ class Consumo(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Calcula la hidratación efectiva antes de guardar.
+        Calcula la hidratación efectiva y deshidratación neta antes de guardar.
+        Para bebidas alcohólicas, calcula la deshidratación neta y la cantidad
+        de agua recomendada para compensar.
         """
+        # Calcular hidratación efectiva
         self.cantidad_hidratacion_efectiva = int(
             self.cantidad_ml * self.bebida.factor_hidratacion
         )
+        
+        # Calcular deshidratación neta para bebidas alcohólicas
+        if self.bebida.es_alcoholica:
+            # La deshidratación neta es la diferencia entre lo que aporta y lo que debería aportar
+            # Si el factor es 0.5, significa que solo aporta el 50%, perdiendo el otro 50%
+            # Deshidratación neta = cantidad_ml - cantidad_hidratacion_efectiva
+            self.deshidratacion_neta_ml = self.cantidad_ml - self.cantidad_hidratacion_efectiva
+            
+            # Recomendar agua adicional para compensar (1:1, es decir, la misma cantidad perdida)
+            self.agua_compensacion_recomendada_ml = abs(self.deshidratacion_neta_ml)
+        else:
+            self.deshidratacion_neta_ml = 0
+            self.agua_compensacion_recomendada_ml = 0
+        
         super().save(*args, **kwargs)
 
     def get_hidratacion_efectiva_porcentaje(self):

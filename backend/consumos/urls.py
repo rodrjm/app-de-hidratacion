@@ -7,6 +7,7 @@ from .views import (
     PremiumBeverageListView, PremiumReminderViewSet, ConsumoHistoryView,
     ConsumoSummaryView, ConsumoTrendsView, ConsumoInsightsView, NoAdsView
 )
+from .views.export_views import ConsumoExportView
 
 app_name = 'consumos'
 
@@ -39,4 +40,6 @@ urlpatterns = [
     path('premium/stats/summary/', ConsumoSummaryView.as_view(), name='premium-summary'),
     path('premium/stats/trends/', ConsumoTrendsView.as_view(), name='premium-trends'),
     path('premium/stats/insights/', ConsumoInsightsView.as_view(), name='premium-insights'),
+    # API de Exportación
+    path('export/', ConsumoExportView.as_view(), name='consumo-export'),
 ]

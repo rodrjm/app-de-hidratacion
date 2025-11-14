@@ -14,7 +14,7 @@ class BebidaSerializer(serializers.ModelSerializer):
         model = Bebida
         fields = [
             'id', 'nombre', 'factor_hidratacion', 'descripcion',
-            'es_agua', 'es_premium', 'calorias_por_ml', 'activa', 'fecha_creacion'
+            'es_agua', 'es_premium', 'es_alcoholica', 'calorias_por_ml', 'activa', 'fecha_creacion'
         ]
         read_only_fields = ['id', 'fecha_creacion']
 
