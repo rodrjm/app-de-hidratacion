@@ -1,5 +1,7 @@
 # 💧 HydroTracker Frontend
 
+![Frontend CI](https://github.com/OWNER/REPO/actions/workflows/frontend-ci.yml/badge.svg)
+
 Frontend moderno para la aplicación de seguimiento de hidratación HydroTracker, construido con React, TypeScript, Vite y Tailwind CSS.
 
 ## 🚀 Características
@@ -146,6 +148,7 @@ npm run build        # Build de producción
 npm run preview      # Preview del build
 npm run lint         # Linter
 npm run type-check   # Verificación de tipos
+npm run lint:fix     # Correcciones automáticas del linter
 ```
 
 ## 🌐 API Integration
