@@ -1,9 +1,26 @@
 """
-Configuración alternativa para HydroTracker usando SQLite.
+Configuración alternativa para Dosis vital: Tu aplicación de hidratación personal usando SQLite.
 Úsala si tienes problemas con PostgreSQL.
+Ideal para desarrollo y testing.
 """
 
 from .settings import *
+import os
+
+# Forzar DEBUG=True para SQLite/testing
+DEBUG = True
+
+# Configurar ALLOWED_HOSTS para desarrollo/testing
+if not os.environ.get('ALLOWED_HOSTS'):
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
+
+# Deshabilitar security headers para testing
+SECURE_SSL_REDIRECT = False
+SECURE_BROWSER_XSS_FILTER = False
+SECURE_CONTENT_TYPE_NOSNIFF = False
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 
 # Configuración de base de datos SQLite
 DATABASES = {

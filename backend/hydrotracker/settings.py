@@ -3,8 +3,10 @@ Django settings for hydrotracker project.
 """
 
 from pathlib import Path
-from decouple import config
 import os
+import sys
+from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -12,10 +14,34 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+# Validar SECRET_KEY en producción
+if not SECRET_KEY or SECRET_KEY == 'django-insecure-change-this-in-production':
+    # Permitir solo en desarrollo (DEBUG=True)
+    DEBUG_MODE = config('DEBUG', default=True, cast=bool)
+    if not DEBUG_MODE:
+        raise ImproperlyConfigured(
+            'SECRET_KEY debe estar configurado en producción. '
+            'Configure la variable de entorno SECRET_KEY con un valor seguro.'
+        )
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = config('DEBUG', default=False, cast=bool)
+
+# ALLOWED_HOSTS - Validar en producción
+# Obtener DEBUG antes de validar (puede ser sobrescrito por settings_sqlite)
+DEBUG_FOR_VALIDATION = config('DEBUG', default=False, cast=bool)
+ALLOWED_HOSTS_STR = config('ALLOWED_HOSTS', default='localhost,127.0.0.1')
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(',') if host.strip()]
+
+# Validar que ALLOWED_HOSTS esté configurado en producción
+# Permitir localhost/testserver para desarrollo y testing
+is_testing = 'test' in sys.argv or 'pytest' in sys.modules or 'DJANGO_SETTINGS_MODULE' in os.environ and 'sqlite' in os.environ.get('DJANGO_SETTINGS_MODULE', '')
+if not ALLOWED_HOSTS or (not DEBUG_FOR_VALIDATION and not is_testing and 'localhost' in ALLOWED_HOSTS and '127.0.0.1' in ALLOWED_HOSTS and len(ALLOWED_HOSTS) == 2):
+    if not DEBUG_FOR_VALIDATION and not is_testing:
+        raise ImproperlyConfigured(
+            'ALLOWED_HOSTS debe estar configurado en producción. '
+            'Configure la variable de entorno ALLOWED_HOSTS con el dominio de producción.'
+        )
 
 # Application definition
 DJANGO_APPS = [
@@ -191,13 +217,21 @@ SIMPLE_JWT = {
     ],
 }
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# CORS settings - Configurable desde variables de entorno
+CORS_ALLOWED_ORIGINS_STR = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:3000,http://127.0.0.1:3000'
+)
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CORS adicional para desarrollo
+if DEBUG:
+    CORS_ALLOWED_ORIGINS.extend([
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ])
 
 # Configuración de metas de hidratación
 META_FIJA_ML = config('META_FIJA_ML', default=2000, cast=int)
@@ -213,6 +247,10 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
+        'security': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} [SECURITY] {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'file': {
@@ -221,10 +259,28 @@ LOGGING = {
             'filename': BASE_DIR / 'logs' / 'django.log',
             'formatter': 'verbose',
         },
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'formatter': 'security',
+        },
         'console': {
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django.security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'users.security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'WARNING',
+            'propagate': False,
         },
     },
     'root': {
@@ -235,9 +291,9 @@ LOGGING = {
 
 # drf-spectacular settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'HydroTracker API',
+    'TITLE': 'Dosis vital: Tu aplicación de hidratación personal API',
     'DESCRIPTION': '''
-    # HydroTracker API Documentation
+    # Dosis vital: Tu aplicación de hidratación personal API Documentation
     
     API RESTful para el seguimiento de hidratación personal.
     
@@ -287,12 +343,12 @@ SPECTACULAR_SETTINGS = {
     ],
     'EXTENSIONS_INFO': {
         'x-logo': {
-            'url': 'https://via.placeholder.com/200x50/4CAF50/FFFFFF?text=HydroTracker',
-            'altText': 'HydroTracker Logo'
+            'url': 'https://via.placeholder.com/200x50/4CAF50/FFFFFF?text=Dosis%20vital%3A%20Tu%20aplicaci%C3%B3n%20de%20hidrataci%C3%B3n%20personal',
+            'altText': 'Dosis vital: Tu aplicación de hidratación personal Logo'
         }
     },
     'CONTACT': {
-        'name': 'Equipo de Desarrollo HydroTracker',
+        'name': 'Equipo de Desarrollo Dosis vital: Tu aplicación de hidratación personal',
         'email': 'dev@hydrotracker.com',
         'url': 'https://hydrotracker.com'
     },
@@ -349,6 +405,35 @@ CACHES = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'sessions'
 SESSION_COOKIE_AGE = 86400  # 24 horas
+
+# Security Headers - Solo en producción (HTTPS requerido)
+if not DEBUG:
+    # HTTPS Settings
+    SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=True, cast=bool)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    
+    # Security Headers
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=31536000, cast=int)  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Session Security
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    
+    # CSRF Security
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_SAMESITE = 'Lax'
+else:
+    # En desarrollo, headers menos restrictivos
+    X_FRAME_OPTIONS = 'SAMEORIGIN'
+    SECURE_BROWSER_XSS_FILTER = False
+    SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # Configuración de Django Debug Toolbar (solo en desarrollo)
 if DEBUG:
