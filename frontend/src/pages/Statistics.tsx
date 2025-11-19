@@ -636,7 +636,7 @@ const Statistics: React.FC = () => {
             </Card>
           </>
         ) : (
-          <Card title="Estadísticas avanzadas" subtitle="Desbloquea tu potencial: Gráficos semanales y anuales con Tomá bien, che! Premium">
+          <Card title="Estadísticas avanzadas" subtitle="Desbloquea tu potencial: Gráficos semanales y anuales con Dosis vital: Tu aplicación de hidratación personal Premium">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 bg-gray-100 p-2 rounded-lg w-fit">
                 {[
@@ -657,7 +657,7 @@ const Statistics: React.FC = () => {
                 ))}
               </div>
               <div className="flex items-center justify-between">
-                <p className="text-neutral-700">Desbloquea tu potencial: Gráficos semanales y anuales con Tomá bien, che! Premium.</p>
+                <p className="text-neutral-700">Desbloquea tu potencial: Gráficos semanales y anuales con Dosis vital: Tu aplicación de hidratación personal Premium.</p>
                 <Button variant="secondary" disabled title="Disponible en Premium">Exportar</Button>
               </div>
             </div>

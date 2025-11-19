@@ -456,7 +456,7 @@ const Profile: React.FC = () => {
                             onClick={() => navigate('/premium')}
                             className="text-accent-500 hover:text-accent-600 font-display font-medium underline"
                           >
-                            Tomá bien, che! Premium
+                            Dosis vital: Tu aplicación de hidratación personal Premium
                           </button>
                           .
                         </p>
@@ -607,7 +607,7 @@ const Profile: React.FC = () => {
                 </Card>
 
                 {/* Premium Card - Movido aquí desde Settings */}
-                <Card title="Tomá bien, che! Premium">
+                <Card title="Dosis vital: Tu aplicación de hidratación personal Premium">
                   {premiumLoading ? (
                     <div className="text-neutral-500">Cargando...</div>
                   ) : (
@@ -892,7 +892,7 @@ const Profile: React.FC = () => {
                           onClick={() => {
                             const code = referidosInfo?.codigo_referido || (user?.username ? `TOMA_${user.username.toUpperCase()}` : 'TOMA_USER');
                             const message = encodeURIComponent(
-                              `¡Sumate a "Tomá bien, che!" y controlá tu hidratación de manera científica! 🚰\n\nUsá mi código de referido: ${code}\n\nRegistrate aquí: ${window.location.origin}/register?ref=${code}`
+                              `¡Sumate a "Dosis vital: Tu aplicación de hidratación personal" y controlá tu hidratación de manera científica! 🚰\n\nUsá mi código de referido: ${code}\n\nRegistrate aquí: ${window.location.origin}/register?ref=${code}`
                             );
                             window.open(`https://wa.me/?text=${message}`, '_blank');
                           }}
@@ -921,7 +921,7 @@ const Profile: React.FC = () => {
                 <Card title="Feedback y Soporte">
                   <div className="space-y-3">
                     <div>
-                      <h3 className="text-sm font-display font-medium text-neutral-700 mb-1">Ayúdanos a mejorar "Tomá bien, che!"</h3>
+                      <h3 className="text-sm font-display font-medium text-neutral-700 mb-1">Ayúdanos a mejorar "Dosis vital: Tu aplicación de hidratación personal"</h3>
                       <p className="text-sm text-neutral-500">Envía tu opinión o reporta errores</p>
                     </div>
                     <Button 

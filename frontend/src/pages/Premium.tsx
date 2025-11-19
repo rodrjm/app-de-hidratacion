@@ -79,7 +79,7 @@ const Premium: React.FC = () => {
           <div className="flex items-center justify-center mb-4">
             <Crown className="w-8 h-8 text-secondary-500 mr-2" />
             <h1 className="text-3xl md:text-4xl font-display font-bold text-neutral-700">
-              Tomá bien, che! Premium: Precisión y Salud Sin Límites
+              Dosis vital: Tu aplicación de hidratación personal Premium: Precisión y Salud Sin Límites
             </h1>
           </div>
           <p className="text-lg text-neutral-600 max-w-2xl mx-auto">

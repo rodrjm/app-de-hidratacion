@@ -212,7 +212,7 @@ const Register: React.FC = () => {
             Crear Cuenta
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
-            Únete a Tomá bien, che! y mejora tu hidratación
+            Únete a Dosis vital: Tu aplicación de hidratación personal y mejora tu hidratación
           </p>
         </div>
 

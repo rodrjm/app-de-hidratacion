@@ -142,7 +142,7 @@ const Login: React.FC = () => {
             <Droplets className="h-8 w-8 text-white" />
           </div>
           <h2 className="text-3xl font-display font-bold text-neutral-700">
-            Tomá bien, che!
+            Dosis vital: Tu aplicación de hidratación personal
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
             Tu asistente de hidratación personal
