@@ -1,5 +1,5 @@
 """
-Tests de performance para HydroTracker API.
+Tests de performance para Dosis vital: Tu aplicación de hidratación personal API.
 """
 
 import pytest
