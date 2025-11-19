@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class CacheManager:
     """
-    Gestor de caché para la aplicación HydroTracker.
+    Gestor de caché para la aplicación Dosis vital: Tu aplicación de hidratación personal.
     """
     
     # Tiempos de expiración en segundos
@@ -49,7 +49,8 @@ class CacheManager:
             # Seleccionar caché por alias con fallback a default
             try:
                 selected_cache = caches[cache_alias] if cache_alias else cache
-            except Exception:
+            except (KeyError, ValueError) as e:
+                logger.debug(f'Error seleccionando caché alias {cache_alias}, usando default: {e}')
                 selected_cache = cache
             # Intentar obtener del caché
             cached_value = selected_cache.get(key)
@@ -191,7 +192,8 @@ class QueryCache:
             # Intentar obtener del caché
             try:
                 selected_cache = caches['api']
-            except Exception:
+            except (KeyError, ValueError) as e:
+                logger.debug(f'Error seleccionando caché api, usando default: {e}')
                 selected_cache = cache
             cached_data = selected_cache.get(cache_key)
             if cached_data is not None:
@@ -216,7 +218,8 @@ class QueryCache:
         try:
             try:
                 selected_cache = caches['api']
-            except Exception:
+            except (KeyError, ValueError) as e:
+                logger.debug(f'Error seleccionando caché api, usando default: {e}')
                 selected_cache = cache
             cached_result = selected_cache.get(cache_key)
             if cached_result is not None:

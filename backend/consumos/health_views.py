@@ -18,14 +18,14 @@ def health_check(request):
         
         return JsonResponse({
             "status": "healthy",
-            "service": "HydroTracker API",
+            "service": "Dosis vital: Tu aplicación de hidratación personal API",
             "database": "connected",
             "timestamp": timezone.now().isoformat()
         })
     except Exception as e:
         return JsonResponse({
             "status": "unhealthy",
-            "service": "HydroTracker API",
+            "service": "Dosis vital: Tu aplicación de hidratación personal API",
             "error": str(e),
             "timestamp": timezone.now().isoformat()
         }, status=500)

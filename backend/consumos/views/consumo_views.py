@@ -2,6 +2,7 @@
 Vistas para la gestión de consumos de hidratación.
 """
 
+import logging
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -10,6 +11,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum, Count, Avg, Prefetch
 from django.utils import timezone
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.conf import settings
 from datetime import timedelta, datetime
 from zoneinfo import ZoneInfo
 
@@ -19,6 +22,8 @@ from ..serializers.consumo_serializers import (
 )
 from .base_views import BaseViewSet, StatsMixin, FilterMixin
 from ..utils.cache_utils import CacheManager, cache_result, cache_user_data
+
+logger = logging.getLogger(__name__)
 
 
 class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
@@ -80,14 +85,16 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
             # Construye inicio y fin del día en la zona local indicada y retorna en UTC
             try:
                 y, m, d = map(int, local_date_str.split('-'))
-            except Exception:
+            except (ValueError, AttributeError) as e:
+                logger.debug(f'Error parseando fecha: {e}')
                 return None, None
             # Zona horaria
             tzinfo = None
             if tz_name:
                 try:
                     tzinfo = ZoneInfo(tz_name)
-                except Exception:
+                except (ValueError, KeyError) as e:
+                    logger.debug(f'Zona horaria inválida: {tz_name}, Error: {e}')
                     tzinfo = None
             if tzinfo is None:
                 tzinfo = timezone.get_current_timezone()
@@ -105,7 +112,8 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
                 _, end_utc = local_day_bounds_to_utc_bounds(fecha_fin)
                 if start_utc and end_utc:
                     queryset = queryset.filter(fecha_hora__range=[start_utc, end_utc])
-            except Exception:
+            except (ValueError, AttributeError) as e:
+                logger.debug(f'Error procesando rango de fechas: {e}')
                 pass
         else:
             # Comportamiento anterior basado en __date
@@ -113,13 +121,15 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
                 try:
                     fecha_inicio_obj = timezone.datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
                     queryset = queryset.filter(fecha_hora__date__gte=fecha_inicio_obj)
-                except ValueError:
+                except ValueError as e:
+                    logger.debug(f'Error parseando fecha_inicio: {e}')
                     pass
         if fecha_fin:
             try:
                 fecha_fin_obj = timezone.datetime.strptime(fecha_fin, '%Y-%m-%d').date()
                 queryset = queryset.filter(fecha_hora__date__lte=fecha_fin_obj)
-            except ValueError:
+            except ValueError as e:
+                logger.debug(f'Error parseando fecha_fin: {e}')
                 pass
         
         return queryset
@@ -192,9 +202,16 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
             trends = service.get_trends(period, tz_name=tz_name)
             return Response(trends)
         except ValueError as e:
+            logger.warning(f'Error de validación en trends - Usuario: {request.user.email}, Error: {e}')
             return Response({
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f'Error inesperado en trends - Usuario: {request.user.email}, Error: {e}', exc_info=True)
+            return Response({
+                'error': 'Error al obtener tendencias',
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'])
     @cache_result(timeout=600, key_prefix='consumos_stats')

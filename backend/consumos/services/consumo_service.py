@@ -2,6 +2,7 @@
 Servicio para la lógica de negocio de consumos.
 """
 
+import logging
 from django.db.models import Sum, Count, Avg, Max, Min
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
 from django.utils import timezone
@@ -14,18 +15,67 @@ from collections import defaultdict
 from ..models import Consumo
 from ..utils.cache_utils import CacheManager, cache_user_data
 
+logger = logging.getLogger(__name__)
+
 
 class ConsumoService:
     """
     Servicio para la lógica de negocio de consumos.
+    
+    Este servicio encapsula toda la lógica de negocio relacionada con
+    consumos de hidratación, incluyendo:
+    - Cálculo de estadísticas diarias, semanales y mensuales
+    - Análisis de tendencias
+    - Optimización de consultas a la base de datos
+    - Manejo de zonas horarias
+    
+    Args:
+        user: Instancia del modelo User para el cual se realizarán las operaciones
+        
+    Example:
+        >>> service = ConsumoService(user)
+        >>> summary = service.get_daily_summary()
+        >>> trends = service.get_trends('weekly')
     """
     
     def __init__(self, user):
+        """
+        Inicializa el servicio con un usuario específico.
+        
+        Args:
+            user: Instancia del modelo User
+        """
         self.user = user
     
     def get_daily_summary(self, fecha=None, tz_name: Optional[str] = None):
         """
         Obtiene un resumen diario de consumos con caché.
+        
+        Calcula estadísticas agregadas para un día específico, incluyendo:
+        - Total de hidratación efectiva
+        - Cantidad de consumos
+        - Progreso hacia la meta diaria
+        - Bebidas más consumidas
+        
+        Args:
+            fecha: Fecha para la cual obtener el resumen (datetime.date).
+                  Si es None, usa la fecha actual.
+            tz_name: Nombre de la zona horaria (ej: 'America/Mexico_City').
+                     Si es None, usa la zona horaria del sistema.
+        
+        Returns:
+            dict: Diccionario con estadísticas del día:
+                - total_hidratacion_efectiva_ml: Total de ml de hidratación efectiva
+                - cantidad_consumos: Número de consumos registrados
+                - meta_ml: Meta diaria del usuario
+                - progreso_porcentaje: Porcentaje de la meta alcanzado
+                - completada: Boolean indicando si se alcanzó la meta
+                
+        Example:
+            >>> service = ConsumoService(user)
+            >>> summary = service.get_daily_summary()
+            >>> print(summary['progreso_porcentaje'])
+            75.5
         """
         if fecha is None:
             fecha = timezone.now().date()
@@ -35,7 +85,8 @@ class ConsumoService:
         if tz_name:
             try:
                 tzinfo = ZoneInfo(tz_name)
-            except Exception:
+            except (ValueError, KeyError) as e:
+                logger.debug(f'Zona horaria inválida en get_daily_summary: {tz_name}, Error: {e}')
                 tzinfo = None
         if tzinfo is None:
             tzinfo = timezone.get_current_timezone()
@@ -190,7 +241,8 @@ class ConsumoService:
         if tz_name:
             try:
                 tzinfo = ZoneInfo(tz_name)
-            except Exception:
+            except (ValueError, KeyError) as e:
+                logger.debug(f'Zona horaria inválida en get_trends: {tz_name}, Error: {e}')
                 tzinfo = None
         if tzinfo is None:
             tzinfo = timezone.get_current_timezone()
@@ -226,6 +278,12 @@ class ConsumoService:
                 usuario=self.user,
                 fecha_hora__range=[start_ayer_utc, end_ayer_utc]
             )
+            
+            # Para daily, usar las variables ya definidas
+            start_curr_utc = start_hoy_utc
+            end_curr_utc = end_hoy_utc
+            start_prev_utc = start_ayer_utc
+            end_prev_utc = end_ayer_utc
         else:
             # Para otros períodos, usar ventanas móviles (7/30/365 días) en TZ del usuario y convertir a UTC
             today_local = now_local.date()

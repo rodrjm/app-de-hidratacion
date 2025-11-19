@@ -39,7 +39,8 @@ class ConsumoSerializer(serializers.ModelSerializer):
             if tz_name:
                 try:
                     return ZoneInfo(tz_name)
-                except Exception:
+                except (ValueError, KeyError):
+                    # Zona horaria inválida, usar default
                     pass
         # Si no hay zona horaria en el request, usar la zona horaria actual de Django
         return timezone.get_current_timezone()
