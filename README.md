@@ -1,10 +1,31 @@
-# 💧 HydroTracker - API de Hidratación
+# 💧 Dosis vital: Tu aplicación de hidratación personal - Sistema de Hidratación Inteligente
 
 ![Frontend CI](https://github.com/OWNER/REPO/actions/workflows/frontend-ci.yml/badge.svg)
 
-Una API RESTful completa para el seguimiento de hidratación con funcionalidades premium y sistema de monetización.
+Una aplicación completa de seguimiento de hidratación con funcionalidades premium, sistema de monetización y análisis avanzado de patrones de consumo.
 
-## 🚀 Instalación Rápida
+## 📖 Tabla de Contenidos
+
+- [Características](#-características)
+- [Stack Tecnológico](#-stack-tecnológico)
+- [Instalación](#-instalación)
+- [Configuración](#-configuración)
+- [Uso](#-uso)
+- [Testing](#-testing)
+- [Documentación](#-documentación)
+- [Despliegue](#-despliegue)
+- [Contribución](#-contribución)
+
+## 🚀 Instalación
+
+### Requisitos Previos
+
+- **Python**: 3.8 o superior
+- **Node.js**: 18.x o superior
+- **PostgreSQL**: 12+ (opcional, SQLite para desarrollo)
+- **Redis**: 6.0+ (opcional, para caché)
+
+### Instalación Rápida
 
 ### Windows
 ```bash
@@ -62,7 +83,27 @@ pip install Django==4.2.7 djangorestframework==3.14.0 djangorestframework-simple
 
 ## 📚 Documentación
 
-- Ver carpeta `docs/` en el repositorio
+### Documentación del Proyecto
+
+- **[Análisis Exhaustivo](docs/ANALISIS_EXHAUSTIVO_PROYECTO.md)**: Análisis completo del proyecto
+- **[Guía de Instalación](docs/INSTALACION.md)**: Instrucciones detalladas de instalación
+- **[Guía de Testing](docs/TESTING_GUIDE.md)**: Cómo escribir y ejecutar tests
+- **[Guía de Integración](frontend/INTEGRATION_GUIDE.md)**: Integración frontend-backend
+
+### Documentación de API
+
+La API está documentada con OpenAPI/Swagger:
+
+- **Swagger UI**: `http://localhost:8000/api/docs/`
+- **ReDoc**: `http://localhost:8000/api/redoc/`
+- **Schema JSON**: `http://localhost:8000/api/schema/`
+
+### Correcciones Aplicadas
+
+- **[Fase 1](docs/FASE1_CORRECCIONES_APLICADAS.md)**: Seguridad Crítica
+- **[Fase 2](docs/FASE2_CORRECCIONES_APLICADAS.md)**: Seguridad y Configuración
+- **[Fase 3](docs/FASE3_CORRECCIONES_APLICADAS.md)**: Mejoras de Código
+- **[Fase 4](docs/FASE4_CORRECCIONES_APLICADAS.md)**: Optimización
 
 ## 🎯 Características
 
@@ -127,33 +168,78 @@ pip install Django==4.2.7 djangorestframework==3.14.0 djangorestframework-simple
 - `GET /api/premium/stats/summary/` - Estadísticas agregadas
 - `GET /api/premium/stats/insights/` - Insights avanzados
 
-## 🧪 Pruebas
+## 🧪 Testing
+
+### Backend (Django)
 
 ```bash
-# Ejecutar todas las pruebas
-python test_goals_reminders_api.py
-python test_monetization_api.py
-python test_premium_api.py
-python test_premium_stats_api.py
-python test_no_ads_api.py
+# Instalar dependencias de testing
+pip install pytest pytest-django pytest-cov factory-boy
 
-# Con SQLite
-python test_no_ads_api.py --settings=hydrotracker.settings_sqlite
+# Ejecutar todos los tests
+cd backend
+pytest tests/
+
+# Ejecutar con cobertura
+pytest tests/ --cov=users --cov=consumos --cov-report=html
+
+# Ejecutar tests específicos
+pytest tests/test_security.py -v
+pytest tests/test_views.py -v
+
+# Ejecutar por marcadores
+pytest tests/ -m unit
+pytest tests/ -m integration
+pytest tests/ -m api
+```
+
+### Frontend (React/Vite)
+
+```bash
+# Ejecutar tests
+cd frontend
+npm run test
+
+# Ejecutar tests con cobertura
+npm run test:coverage
+
+# Ejecutar tests en modo watch
+npm run test:watch
+```
+
+### Tests de Seguridad
+
+Los tests de seguridad cubren:
+- Autenticación y autorización
+- Validación de entrada
+- Protección contra SQL injection
+- Rate limiting
+- Permisos premium
+
+```bash
+pytest tests/test_security.py -v
 ```
 
 ## 🚀 Despliegue
-## ✅ Calidad y Accesibilidad
+
+### Desarrollo
+
+```bash
+# Backend
+cd backend
+python manage.py runserver
+
+# Frontend
+cd frontend
+npm run dev
+```
+
+### Calidad y Accesibilidad
 
 - Lint de a11y (jsx-a11y) y React en `frontend`:
   - `npm run lint` y `npm run lint:fix`
 - CI ejecuta type-check, lint, build y Lighthouse (ver workflow `Frontend CI`).
 - Presupuestos de rendimiento en `.github/workflows/lh-budgets.json`.
-
-
-### Desarrollo
-```bash
-python manage.py runserver
-```
 
 ### Producción
 ```bash
@@ -212,11 +298,11 @@ Si tienes problemas:
 
 ## 📞 Contacto
 
-- **Proyecto**: HydroTracker
+- **Proyecto**: Dosis vital: Tu aplicación de hidratación personal
 - **Versión**: 1.0.0
 - **Autor**: Equipo de Desarrollo
 - **Email**: support@hydrotracker.com
 
 ---
 
-¡Gracias por usar HydroTracker! 💧
+¡Gracias por usar Dosis vital: Tu aplicación de hidratación personal! 💧

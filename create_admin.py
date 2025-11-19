@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Script para crear un superusuario en HydroTracker
+Script para crear un superusuario en Dosis vital: Tu aplicación de hidratación personal
 """
 import os
 import django

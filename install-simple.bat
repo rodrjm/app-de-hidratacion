@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo   Instalador Simple de HydroTracker
+echo   Instalador Simple de Dosis vital: Tu aplicación de hidratación personal
 echo   Usando SQLite (Recomendado para desarrollo)
 echo ========================================
 echo.

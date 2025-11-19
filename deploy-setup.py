@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Script de configuración para despliegue en producción.
-Configura el proyecto HydroTracker para Vercel + Railway.
+Configura el proyecto Dosis vital: Tu aplicación de hidratación personal para Vercel + Railway.
 """
 
 import os
@@ -86,7 +86,7 @@ JWT_SECRET_KEY=your-jwt-secret-key
 VITE_API_URL=https://your-backend.railway.app/api
 
 # App Configuration
-VITE_APP_NAME=HydroTracker
+VITE_APP_NAME=Dosis vital: Tu aplicación de hidratación personal
 VITE_APP_VERSION=1.0.0
 VITE_APP_ENVIRONMENT=production
 """
@@ -121,14 +121,14 @@ def health_check(request):
         
         return JsonResponse({
             "status": "healthy",
-            "service": "HydroTracker API",
+            "service": "Dosis vital: Tu aplicación de hidratación personal API",
             "database": "connected",
             "timestamp": timezone.now().isoformat()
         })
     except Exception as e:
         return JsonResponse({
             "status": "unhealthy",
-            "service": "HydroTracker API",
+            "service": "Dosis vital: Tu aplicación de hidratación personal API",
             "error": str(e),
             "timestamp": timezone.now().isoformat()
         }, status=500)
@@ -286,7 +286,7 @@ def create_deployment_checklist():
     """Crea checklist de despliegue."""
     print("📋 Creando checklist de despliegue...")
     
-    checklist = '''# 🚀 Checklist de Despliegue - HydroTracker
+    checklist = '''# 🚀 Checklist de Despliegue - Dosis vital: Tu aplicación de hidratación personal
 
 ## ✅ Pre-Deploy Checklist
 
@@ -370,7 +370,7 @@ def create_deployment_checklist():
 
 def main():
     """Función principal del script."""
-    print("🚀 Configurando HydroTracker para despliegue en producción...")
+    print("🚀 Configurando Dosis vital: Tu aplicación de hidratación personal para despliegue en producción...")
     print("=" * 60)
     
     try:

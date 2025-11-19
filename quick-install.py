@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Script de instalación rápida para HydroTracker.
+Script de instalación rápida para Dosis vital: Tu aplicación de hidratación personal.
 Detecta el sistema operativo y instala las dependencias apropiadas.
 """
 
@@ -99,7 +99,7 @@ def create_superuser(use_sqlite=True):
 
 def main():
     """Función principal."""
-    print("🚀 Instalador Rápido de HydroTracker")
+    print("🚀 Instalador Rápido de Dosis vital: Tu aplicación de hidratación personal")
     print("=" * 50)
     
     # Detectar sistema operativo

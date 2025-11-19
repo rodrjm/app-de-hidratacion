@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Instalando dependencias para HydroTracker en sistemas Unix/Linux/macOS..."
+echo "Instalando dependencias para Dosis vital: Tu aplicación de hidratación personal en sistemas Unix/Linux/macOS..."
 echo
 
 # Verificar si Python está instalado

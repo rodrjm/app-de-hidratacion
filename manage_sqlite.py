@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Script de gestión para HydroTracker usando SQLite.
+Script de gestión para Dosis vital: Tu aplicación de hidratación personal usando SQLite.
 Úsalo si tienes problemas con PostgreSQL.
 """
 

@@ -1,5 +1,5 @@
 @echo off
-echo Instalando dependencias para HydroTracker en Windows...
+echo Instalando dependencias para Dosis vital: Tu aplicación de hidratación personal en Windows...
 echo.
 
 echo Opcion 1: Instalar con psycopg2 (requiere PostgreSQL instalado)
