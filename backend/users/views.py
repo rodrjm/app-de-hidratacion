@@ -6,6 +6,9 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from rest_framework.throttling import ScopedRateThrottle
+import json
+import base64
+import logging
 from .models import User, Sugerencia, Feedback
 from .serializers import (
     RegisterSerializer, UserSerializer, CustomTokenObtainPairSerializer,
@@ -13,20 +16,47 @@ from .serializers import (
     FeedbackSerializer
 )
 from consumos.permissions import IsPremiumUser
+from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.conf import settings
+from .utils import crear_recipientes_por_defecto
+
+logger = logging.getLogger(__name__)
+# Usar settings.DEBUG directamente en lugar de variable local
 
 
 class RegisterView(generics.CreateAPIView):
     """
     Vista para el registro de nuevos usuarios.
-    Permite crear una cuenta con validación completa de datos.
+    
+    Permite crear una cuenta con validación completa de datos. Al registrarse,
+    el usuario recibe automáticamente:
+    - Tokens JWT para autenticación
+    - Recipientes por defecto (250ml y 500ml)
+    - Código de referido único
+    
+    Si el usuario proporciona un código de referido válido, se procesa
+    automáticamente y se incrementa el contador del referente.
+    
+    Endpoint: POST /api/register/
+    
+    Permissions:
+        - AllowAny: Cualquiera puede registrarse
+        
+    Returns:
+        - 201 Created: Usuario creado exitosamente
+        - 400 Bad Request: Datos inválidos o errores de validación
+        - 500 Internal Server Error: Error inesperado del servidor
     """
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
         Crea un nuevo usuario y retorna información básica.
+        Operación atómica para asegurar consistencia de datos.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -45,6 +75,8 @@ class RegisterView(generics.CreateAPIView):
             # Preparar respuesta
             user_serializer = UserSerializer(user)
             
+            logger.info(f'Usuario registrado exitosamente - Email: {user.email}')
+            
             return Response({
                 'message': 'Usuario registrado exitosamente',
                 'user': user_serializer.data,
@@ -54,11 +86,18 @@ class RegisterView(generics.CreateAPIView):
                 }
             }, status=status.HTTP_201_CREATED)
             
+        except ValidationError as e:
+            logger.warning(f'Error de validación al crear usuario: {e}')
+            return Response({
+                'error': 'Error de validación',
+                'detail': str(e) if settings.DEBUG else 'Datos inválidos'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.error(f'Error inesperado al crear usuario: {e}', exc_info=True)
             return Response({
                 'error': 'Error al crear el usuario',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -74,20 +113,43 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         """
         Autentica al usuario y retorna tokens JWT con información del usuario.
         """
+        email = request.data.get('email', '')
+        ip_address = self._get_client_ip(request)
+        
         try:
             response = super().post(request, *args, **kwargs)
             
             if response.status_code == 200:
+                # Log de login exitoso
+                user_email = response.data.get('user', {}).get('email', email)
+                logger.info(
+                    f'Login exitoso - Email: {user_email}, IP: {ip_address}',
+                    extra={'event_type': 'login_success', 'email': user_email, 'ip': ip_address}
+                )
                 # Agregar mensaje de éxito
                 response.data['message'] = 'Inicio de sesión exitoso'
                 
             return response
             
         except Exception as e:
+            # Log de intento de login fallido
+            logger.warning(
+                f'Intento de login fallido - Email: {email}, IP: {ip_address}, Error: {str(e)}',
+                extra={'event_type': 'login_failed', 'email': email, 'ip': ip_address}
+            )
             return Response({
                 'error': 'Error en el inicio de sesión',
-                'detail': str(e)
+                'detail': 'Credenciales inválidas' if not settings.DEBUG else str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _get_client_ip(self, request):
+        """Obtiene la IP del cliente desde el request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
 
 class LogoutView(APIView):
@@ -146,9 +208,11 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             return UserProfileUpdateSerializer
         return UserSerializer
 
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
         """
         Actualiza el perfil del usuario y recalcula la meta de hidratación si es necesario.
+        Operación atómica para asegurar consistencia de datos.
         """
         try:
             response = super().update(request, *args, **kwargs)
@@ -163,14 +227,22 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
                     response.data = user_serializer.data
                 
                 response.data['message'] = 'Perfil actualizado exitosamente'
+                logger.info(f'Perfil actualizado - Usuario: {user.email}')
             
             return response
             
+        except ValidationError as e:
+            logger.warning(f'Error de validación al actualizar perfil - Usuario: {request.user.email}, Error: {e}')
+            return Response({
+                'error': 'Error de validación',
+                'detail': str(e) if settings.DEBUG else 'Datos inválidos'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.error(f'Error inesperado al actualizar perfil - Usuario: {request.user.email}, Error: {e}', exc_info=True)
             return Response({
                 'error': 'Error al actualizar el perfil',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ChangePasswordView(APIView):
@@ -178,11 +250,16 @@ class ChangePasswordView(APIView):
     Vista para cambiar la contraseña del usuario autenticado.
     """
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'  # Usar mismo rate limit que login
 
     def post(self, request):
         """
         Cambia la contraseña del usuario autenticado.
         """
+        user = request.user
+        ip_address = self._get_client_ip(request)
+        
         serializer = ChangePasswordSerializer(
             data=request.data,
             context={'request': request}
@@ -191,16 +268,55 @@ class ChangePasswordView(APIView):
         if serializer.is_valid():
             try:
                 serializer.save()
+                # Log de cambio de contraseña exitoso
+                logger.info(
+                    f'Cambio de contraseña exitoso - Usuario: {user.email}, IP: {ip_address}',
+                    extra={
+                        'event_type': 'password_change_success',
+                        'user_id': user.id,
+                        'email': user.email,
+                        'ip': ip_address
+                    }
+                )
                 return Response({
                     'message': 'Contraseña cambiada exitosamente'
                 }, status=status.HTTP_200_OK)
             except Exception as e:
+                # Log de error al cambiar contraseña
+                logger.warning(
+                    f'Error al cambiar contraseña - Usuario: {user.email}, IP: {ip_address}, Error: {str(e)}',
+                    extra={
+                        'event_type': 'password_change_failed',
+                        'user_id': user.id,
+                        'email': user.email,
+                        'ip': ip_address
+                    }
+                )
                 return Response({
                     'error': 'Error al cambiar la contraseña',
-                    'detail': str(e)
+                    'detail': 'Error al procesar la solicitud' if not settings.DEBUG else str(e)
                 }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Log de validación fallida
+        logger.warning(
+            f'Intento de cambio de contraseña con datos inválidos - Usuario: {user.email}, IP: {ip_address}',
+            extra={
+                'event_type': 'password_change_validation_failed',
+                'user_id': user.id,
+                'email': user.email,
+                'ip': ip_address
+            }
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _get_client_ip(self, request):
+        """Obtiene la IP del cliente desde el request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
 
 class UserStatsView(APIView):
@@ -263,25 +379,44 @@ class CheckUsernameView(APIView):
         """
         Verifica si un nombre de usuario está disponible.
         """
-        username = request.data.get('username', '').strip()
-        
+        # Validación de entrada
+        username = request.data.get('username', '')
         if not username:
             return Response({
                 'error': 'Nombre de usuario requerido'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Sanitizar entrada
+        username = str(username).strip()
+        
+        # Validar longitud mínima
         if len(username) < 3:
             return Response({
                 'available': False,
                 'message': 'El nombre de usuario debe tener al menos 3 caracteres'
             }, status=status.HTTP_200_OK)
         
-        is_available = not User.objects.filter(username=username).exists()
+        # Validar caracteres permitidos (solo alfanuméricos, guiones y guiones bajos)
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+            return Response({
+                'available': False,
+                'message': 'El nombre de usuario solo puede contener letras, números, guiones y guiones bajos'
+            }, status=status.HTTP_200_OK)
         
-        return Response({
-            'available': is_available,
-            'message': 'Nombre de usuario disponible' if is_available else 'Nombre de usuario no disponible'
-        }, status=status.HTTP_200_OK)
+        try:
+            is_available = not User.objects.filter(username=username).exists()
+            
+            return Response({
+                'available': is_available,
+                'message': 'Nombre de usuario disponible' if is_available else 'Nombre de usuario no disponible'
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f'Error al verificar username: {e}', exc_info=True)
+            return Response({
+                'error': 'Error al verificar disponibilidad',
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CheckEmailView(APIView):
@@ -294,19 +429,38 @@ class CheckEmailView(APIView):
         """
         Verifica si un correo electrónico está disponible.
         """
-        email = request.data.get('email', '').strip().lower()
-        
+        # Validación de entrada
+        email = request.data.get('email', '')
         if not email:
             return Response({
                 'error': 'Correo electrónico requerido'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        is_available = not User.objects.filter(email=email).exists()
+        # Sanitizar y normalizar email
+        email = str(email).strip().lower()
         
-        return Response({
-            'available': is_available,
-            'message': 'Correo electrónico disponible' if is_available else 'Correo electrónico no disponible'
-        }, status=status.HTTP_200_OK)
+        # Validar formato de email básico
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            return Response({
+                'available': False,
+                'message': 'Formato de correo electrónico inválido'
+            }, status=status.HTTP_200_OK)
+        
+        try:
+            is_available = not User.objects.filter(email=email).exists()
+            
+            return Response({
+                'available': is_available,
+                'message': 'Correo electrónico disponible' if is_available else 'Correo electrónico no disponible'
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f'Error al verificar email: {e}', exc_info=True)
+            return Response({
+                'error': 'Error al verificar disponibilidad',
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class SugerenciaCreateView(generics.CreateAPIView):
@@ -327,15 +481,23 @@ class SugerenciaCreateView(generics.CreateAPIView):
         
         try:
             sugerencia = serializer.save()
+            logger.info(f'Sugerencia creada - Usuario: {request.user.email}, Tipo: {sugerencia.tipo}')
             return Response({
                 'message': 'Sugerencia enviada exitosamente',
                 'sugerencia': serializer.data
             }, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            logger.warning(f'Error de validación al crear sugerencia - Usuario: {request.user.email}, Error: {e}')
+            return Response({
+                'error': 'Error de validación',
+                'detail': str(e) if settings.DEBUG else 'Datos inválidos'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.error(f'Error inesperado al crear sugerencia - Usuario: {request.user.email}, Error: {e}', exc_info=True)
             return Response({
                 'error': 'Error al crear la sugerencia',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class FeedbackCreateView(generics.CreateAPIView):
@@ -356,15 +518,23 @@ class FeedbackCreateView(generics.CreateAPIView):
         
         try:
             feedback = serializer.save()
+            logger.info(f'Feedback creado - Usuario: {request.user.email}, Tipo: {feedback.tipo}')
             return Response({
                 'message': 'Feedback enviado exitosamente. ¡Gracias por tu aporte!',
                 'feedback': serializer.data
             }, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            logger.warning(f'Error de validación al crear feedback - Usuario: {request.user.email}, Error: {e}')
+            return Response({
+                'error': 'Error de validación',
+                'detail': str(e) if settings.DEBUG else 'Datos inválidos'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.error(f'Error inesperado al crear feedback - Usuario: {request.user.email}, Error: {e}', exc_info=True)
             return Response({
                 'error': 'Error al crear el feedback',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ReferidosInfoView(APIView):
@@ -400,11 +570,18 @@ class ReferidosInfoView(APIView):
                 }
             }, status=status.HTTP_200_OK)
             
+        except ValueError as e:
+            logger.warning(f'Error de validación al obtener información de referidos - Usuario: {request.user.email}, Error: {e}')
+            return Response({
+                'error': 'Error de validación',
+                'detail': str(e) if settings.DEBUG else 'Datos inválidos'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.error(f'Error inesperado al obtener información de referidos - Usuario: {request.user.email}, Error: {e}', exc_info=True)
             return Response({
                 'error': 'Error al obtener información de referidos',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ReclamarRecompensaReferidoView(APIView):
@@ -413,9 +590,11 @@ class ReclamarRecompensaReferidoView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         """
         Reclama una recompensa de referidos si el usuario tiene 3 referidos verificados disponibles.
+        Operación atómica para asegurar consistencia de datos.
         """
         try:
             user = request.user
@@ -456,6 +635,8 @@ class ReclamarRecompensaReferidoView(APIView):
             # Por ahora, solo actualizamos es_premium
             user.save(update_fields=['es_premium'])
             
+            logger.info(f'Recompensa de referidos reclamada - Usuario: {user.email}, Recompensas: {recompensas_a_reclamar}')
+            
             return Response({
                 'message': f'¡Recompensa reclamada exitosamente! Se te ha activado {recompensas_a_reclamar} mes(es) Premium gratis.',
                 'recompensas_reclamadas': recompensas_a_reclamar,
@@ -463,34 +644,67 @@ class ReclamarRecompensaReferidoView(APIView):
                 'referidos_pendientes': user.obtener_referidos_pendientes()
             }, status=status.HTTP_200_OK)
             
+        except ValueError as e:
+            logger.warning(f'Error de validación al reclamar recompensa - Usuario: {request.user.email}, Error: {e}')
+            return Response({
+                'error': 'Error de validación',
+                'detail': str(e) if settings.DEBUG else 'Datos inválidos'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.error(f'Error inesperado al reclamar recompensa - Usuario: {request.user.email}, Error: {e}', exc_info=True)
             return Response({
                 'error': 'Error al reclamar la recompensa',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GoogleAuthView(APIView):
     """
     Vista para autenticación con Google.
     Crea un nuevo usuario si no existe, o autentica uno existente.
+    
+    NOTA: Esta implementación acepta credenciales codificadas en base64 desde el frontend.
+    Para mayor seguridad en producción, se recomienda implementar validación real del token
+    JWT de Google usando la librería google-auth.
     """
     permission_classes = [AllowAny]
 
+    @transaction.atomic
     def post(self, request):
+        """
+        Autentica con Google. Operación atómica para asegurar consistencia.
+        """
+        # Validación de entrada
+        credential = request.data.get('credential')
+        if not credential:
+            logger.warning('Intento de autenticación Google sin credencial')
+            return Response({
+                'error': 'Credencial de Google requerida'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validar formato básico de la credencial (debe ser string no vacío)
+        if not isinstance(credential, str) or len(credential.strip()) == 0:
+            logger.warning('Credencial de Google con formato inválido')
+            return Response({
+                'error': 'Formato de credencial inválido'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
-            credential = request.data.get('credential')
-            if not credential:
-                return Response({
-                    'error': 'Credencial de Google requerida'
-                }, status=status.HTTP_400_BAD_REQUEST)
 
             # Decodificar la credencial (base64)
+            # NOTA: En producción, esto debería validar el token JWT real de Google
             try:
-                credential_data = json.loads(base64.b64decode(credential).decode('utf-8'))
-            except Exception:
+                decoded_credential = base64.b64decode(credential).decode('utf-8')
+                credential_data = json.loads(decoded_credential)
+            except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
+                logger.warning(f'Error decodificando credencial de Google: {e}')
                 return Response({
                     'error': 'Credencial inválida'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f'Error inesperado decodificando credencial: {e}', exc_info=True)
+                return Response({
+                    'error': 'Error procesando credencial'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             email = credential_data.get('email')
@@ -499,6 +713,7 @@ class GoogleAuthView(APIView):
             sub = credential_data.get('sub', '')
 
             if not email:
+                logger.warning('Autenticación Google sin email')
                 return Response({
                     'error': 'Email no proporcionado por Google'
                 }, status=status.HTTP_400_BAD_REQUEST)
@@ -534,24 +749,8 @@ class GoogleAuthView(APIView):
                 # Generar código de referido
                 user.generar_codigo_referido()
                 
-                # Crear recipientes por defecto
-                from consumos.models import Recipiente
-                Recipiente.objects.create(
-                    usuario=user,
-                    nombre='Taza/Vaso',
-                    cantidad_ml=250,
-                    color='#3B82F6',
-                    icono='cup',
-                    es_favorito=True
-                )
-                Recipiente.objects.create(
-                    usuario=user,
-                    nombre='Botella/Termo pequeño',
-                    cantidad_ml=500,
-                    color='#10B981',
-                    icono='bottle',
-                    es_favorito=True
-                )
+                # Crear recipientes por defecto usando helper
+                crear_recipientes_por_defecto(user)
 
             # Actualizar último acceso
             user.ultimo_acceso = timezone.now()
@@ -564,6 +763,8 @@ class GoogleAuthView(APIView):
             # Serializar usuario
             user_serializer = UserSerializer(user)
 
+            logger.info(f'Autenticación Google exitosa - Email: {email}, Nuevo usuario: {is_new_user}')
+            
             return Response({
                 'user': user_serializer.data,
                 'access': access_token,
@@ -571,8 +772,14 @@ class GoogleAuthView(APIView):
                 'is_new_user': is_new_user
             }, status=status.HTTP_200_OK)
 
+        except ValueError as e:
+            logger.warning(f'Error de validación en autenticación Google: {e}')
+            return Response({
+                'error': 'Datos de autenticación inválidos'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.error(f'Error inesperado en autenticación Google: {e}', exc_info=True)
             return Response({
                 'error': 'Error en autenticación con Google',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

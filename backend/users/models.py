@@ -8,7 +8,7 @@ import string
 
 class User(AbstractUser):
     """
-    Modelo de usuario personalizado para HydroTracker.
+    Modelo de usuario personalizado para Dosis vital: Tu aplicación de hidratación personal.
     Extiende el modelo AbstractUser de Django con campos específicos para hidratación.
     """
     email = models.EmailField(

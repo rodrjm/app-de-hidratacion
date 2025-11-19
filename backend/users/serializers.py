@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.db import transaction
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
@@ -12,7 +13,7 @@ from .models import Sugerencia, Feedback
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Serializer para el registro de nuevos usuarios.
-    Incluye validación de contraseña y campos específicos de HydroTracker.
+    Incluye validación de contraseña y campos específicos de Dosis vital: Tu aplicación de hidratación personal.
     """
     password = serializers.CharField(
         write_only=True,
@@ -152,8 +153,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
-        """Crea un nuevo usuario con contraseña hasheada y recipientes por defecto."""
+        """
+        Crea un nuevo usuario con contraseña hasheada y recipientes por defecto.
+        Operación atómica para asegurar consistencia de datos.
+        """
         # Remover password_confirm de los datos validados
         validated_data.pop('password_confirm', None)
         
@@ -185,26 +190,9 @@ class RegisterSerializer(serializers.ModelSerializer):
                 # Código de referido inválido, simplemente ignorarlo
                 pass
         
-        # Crear recipientes por defecto (250ml y 500ml)
-        from consumos.models import Recipiente
-        
-        Recipiente.objects.create(
-            usuario=user,
-            nombre='Taza/Vaso',
-            cantidad_ml=250,
-            color='#3B82F6',
-            icono='cup',
-            es_favorito=True
-        )
-        
-        Recipiente.objects.create(
-            usuario=user,
-            nombre='Botella/Termo pequeño',
-            cantidad_ml=500,
-            color='#10B981',
-            icono='bottle',
-            es_favorito=True
-        )
+        # Crear recipientes por defecto usando helper
+        from .utils import crear_recipientes_por_defecto
+        crear_recipientes_por_defecto(user)
         
         return user
 
