@@ -1,3 +1,21 @@
+/**
+ * Servicio centralizado para realizar peticiones HTTP a la API.
+ * 
+ * Este servicio maneja:
+ * - Autenticación JWT automática
+ * - Renovación de tokens
+ * - Manejo centralizado de errores
+ * - Interceptores de request/response
+ * 
+ * @module services/api
+ * @example
+ * ```typescript
+ * import apiService from '@/services/api';
+ * 
+ * const data = await apiService.get('/api/consumos/');
+ * await apiService.post('/api/consumos/', { cantidad_ml: 250 });
+ * ```
+ */
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
 
@@ -47,7 +65,7 @@ class ApiService {
           
           // Solo redirigir si no estamos en login/register y hay token
           if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-            const hasToken = localStorage.getItem('access_token');
+            const hasToken = sessionStorage.getItem('access_token');
             
             // Si hay token pero falla, probablemente expiró - limpiar y redirigir
             if (hasToken) {
@@ -78,7 +96,9 @@ class ApiService {
   }
 
   private loadTokenFromStorage() {
-    const token = localStorage.getItem('access_token');
+    // Usar sessionStorage en lugar de localStorage para mayor seguridad
+    // sessionStorage se limpia automáticamente al cerrar la pestaña
+    const token = sessionStorage.getItem('access_token');
     if (token) {
       this.setToken(token);
     }
@@ -86,13 +106,14 @@ class ApiService {
 
   public setToken(token: string) {
     this.token = token;
-    localStorage.setItem('access_token', token);
+    // Usar sessionStorage en lugar de localStorage para reducir riesgo de XSS
+    sessionStorage.setItem('access_token', token);
   }
 
   public clearToken() {
     this.token = null;
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
   }
 
   public getToken(): string | null {

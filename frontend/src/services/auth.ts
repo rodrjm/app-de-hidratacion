@@ -13,9 +13,48 @@ export interface LoginResponse extends AuthResponse {}
 
 export interface RegisterResponse extends AuthResponse {}
 
+/**
+ * Servicio de autenticación.
+ * 
+ * Maneja todas las operaciones relacionadas con autenticación:
+ * - Login con email/password
+ * - Registro de nuevos usuarios
+ * - Login con Google OAuth
+ * - Logout y limpieza de tokens
+ * - Renovación automática de tokens
+ * 
+ * Los tokens se almacenan en sessionStorage para mayor seguridad
+ * (se limpian al cerrar la pestaña del navegador).
+ * 
+ * @module services/auth
+ * @example
+ * ```typescript
+ * import authService from '@/services/auth';
+ * 
+ * await authService.login('user@example.com', 'password');
+ * await authService.logout();
+ * ```
+ */
 class AuthService {
   /**
-   * Iniciar sesión
+   * Inicia sesión con email y contraseña.
+   * 
+   * @param credentials - Credenciales de login (email y password)
+   * @returns Promise con datos del usuario y tokens JWT
+   * @throws Error si las credenciales son inválidas
+   * 
+   * @example
+   * ```typescript
+   * try {
+   *   const response = await authService.login({
+   *     email: 'user@example.com',
+   *     password: 'password123'
+   *   });
+   *   console.log('Usuario autenticado:', response.user);
+   * } catch (error) {
+   *   console.error('Error de autenticación:', error);
+   * }
+   * ```
    */
   async login(credentials: LoginForm): Promise<LoginResponse> {
     try {
@@ -31,9 +70,9 @@ class AuthService {
         }
       };
       
-      // Guardar tokens
+      // Guardar tokens en sessionStorage (más seguro que localStorage)
       apiService.setToken(loginResponse.tokens.access);
-      localStorage.setItem('refresh_token', loginResponse.tokens.refresh);
+      sessionStorage.setItem('refresh_token', loginResponse.tokens.refresh);
       
       return loginResponse;
     } catch (error: unknown) {
@@ -83,9 +122,9 @@ class AuthService {
         }
       };
       
-      // Guardar tokens
+      // Guardar tokens en sessionStorage (más seguro que localStorage)
       apiService.setToken(registerResponse.tokens.access);
-      localStorage.setItem('refresh_token', registerResponse.tokens.refresh);
+      sessionStorage.setItem('refresh_token', registerResponse.tokens.refresh);
       
       return registerResponse;
     } catch (error) {
@@ -102,7 +141,7 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = sessionStorage.getItem('refresh_token');
       if (refreshToken) {
         await apiService.post('/logout/', { refresh_token: refreshToken });
       }
@@ -120,7 +159,7 @@ class AuthService {
    */
   async refreshToken(): Promise<string> {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = sessionStorage.getItem('refresh_token');
       if (!refreshToken) {
         throw new Error('No hay token de renovación');
       }
@@ -274,9 +313,9 @@ class AuthService {
         credential
       });
       
-      // Guardar tokens
+      // Guardar tokens en sessionStorage (más seguro que localStorage)
       apiService.setToken(response.access);
-      localStorage.setItem('refresh_token', response.refresh);
+      sessionStorage.setItem('refresh_token', response.refresh);
       
       return {
         user: response.user,

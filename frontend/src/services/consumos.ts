@@ -133,7 +133,7 @@ class ConsumosService {
    */
   async getInsights(days: number = 30): Promise<Insights> {
     // Verificar si el usuario es premium antes de hacer la petición
-    const token = localStorage.getItem('access_token');
+    const token = sessionStorage.getItem('access_token');
     if (!token) {
       throw new Error('No hay token de acceso');
     }

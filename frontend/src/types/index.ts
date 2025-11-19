@@ -1,4 +1,4 @@
-// Tipos principales de la aplicación Tomá bien, che!
+// Tipos principales de la aplicación Dosis vital: Tu aplicación de hidratación personal
 
 export interface User {
   id: number;
