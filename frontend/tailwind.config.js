@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Nueva paleta "Tomá bien, che!"
+        // Nueva paleta "Dosis vital: Tu aplicación de hidratación personal"
         primary: {
           DEFAULT: '#F3F7F8', // Blanco Roto - Fondo principal
           50: '#F3F7F8',

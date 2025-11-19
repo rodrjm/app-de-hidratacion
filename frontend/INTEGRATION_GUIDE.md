@@ -1,4 +1,4 @@
-# 🔗 Guía de Integración - HydroTracker Frontend & Backend
+# 🔗 Guía de Integración - Dosis vital: Tu aplicación de hidratación personal Frontend & Backend
 
 ## 📋 Índice
 1. [Resumen de APIs](#resumen-de-apis)
@@ -79,7 +79,7 @@
 ```env
 # Frontend (.env.local)
 VITE_API_URL=http://localhost:8000/api
-VITE_APP_NAME=HydroTracker
+VITE_APP_NAME=Dosis vital: Tu aplicación de hidratación personal
 VITE_ENABLE_PWA=true
 VITE_ENABLE_DEBUG=false
 ```
@@ -389,7 +389,7 @@ const debouncedSearch = useMemo(
 ### **Variables de Producción**
 ```env
 VITE_API_URL=https://api.hydrotracker.app
-VITE_APP_NAME=HydroTracker
+VITE_APP_NAME=Dosis vital: Tu aplicación de hidratación personal
 VITE_ENABLE_PWA=true
 VITE_ENABLE_ANALYTICS=true
 ```
@@ -417,4 +417,4 @@ npm run lint
 
 ---
 
-**¡Con esta guía, el frontend y backend de HydroTracker están completamente integrados y listos para producción! 🚀💧**
+**¡Con esta guía, el frontend y backend de Dosis vital: Tu aplicación de hidratación personal están completamente integrados y listos para producción! 🚀💧**

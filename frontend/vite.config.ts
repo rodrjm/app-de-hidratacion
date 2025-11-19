@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'HydroTracker - Hidratación Inteligente',
-        short_name: 'HydroTracker',
+        name: 'Dosis vital: Tu aplicación de hidratación personal - Hidratación Inteligente',
+        short_name: 'Dosis vital: Tu aplicación de hidratación personal',
         description: 'Aplicación para seguimiento de hidratación personal',
         theme_color: '#4CAF50',
         background_color: '#ffffff',
@@ -79,12 +79,42 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          router: ['react-router-dom'],
-          ui: ['lucide-react', 'recharts']
+        manualChunks: (id) => {
+          // Vendor chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('react-router')) {
+              return 'vendor-router';
+            }
+            if (id.includes('zustand')) {
+              return 'vendor-state';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('react-hot-toast')) {
+              return 'vendor-toast';
+            }
+            // Other node_modules
+            return 'vendor';
+          }
         }
       }
-    }
+    },
+    // Optimize chunk size
+    chunkSizeWarningLimit: 1000,
+    // Enable minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true,
+      },
+    },
   }
 })

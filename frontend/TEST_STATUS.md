@@ -1,4 +1,4 @@
-# Estado de las Pruebas de QA - HydroTracker Frontend
+# Estado de las Pruebas de QA - Dosis vital: Tu aplicación de hidratación personal Frontend
 
 ## Resumen General
 ✅ **Pruebas Unitarias**: Completadas y funcionando

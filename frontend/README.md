@@ -1,8 +1,8 @@
-# 💧 HydroTracker Frontend
+# 💧 Dosis vital: Tu aplicación de hidratación personal Frontend
 
 ![Frontend CI](https://github.com/OWNER/REPO/actions/workflows/frontend-ci.yml/badge.svg)
 
-Frontend moderno para la aplicación de seguimiento de hidratación HydroTracker, construido con React, TypeScript, Vite y Tailwind CSS.
+Frontend moderno para la aplicación de seguimiento de hidratación Dosis vital: Tu aplicación de hidratación personal, construido con React, TypeScript, Vite y Tailwind CSS.
 
 ## 🚀 Características
 
@@ -45,7 +45,7 @@ Frontend moderno para la aplicación de seguimiento de hidratación HydroTracker
 ### Prerrequisitos
 - Node.js 18+ 
 - npm o yarn
-- Backend HydroTracker ejecutándose
+- Backend Dosis vital: Tu aplicación de hidratación personal ejecutándose
 
 ### Pasos
 
@@ -70,7 +70,7 @@ cp env.example .env.local
 4. **Configurar .env.local**
 ```env
 VITE_API_URL=http://localhost:8000/api
-VITE_APP_NAME=HydroTracker
+VITE_APP_NAME=Dosis vital: Tu aplicación de hidratación personal
 VITE_ENABLE_PWA=true
 ```
 
@@ -225,7 +225,7 @@ npm run build
 ### Variables de Entorno de Producción
 ```env
 VITE_API_URL=https://api.hydrotracker.app
-VITE_APP_NAME=HydroTracker
+VITE_APP_NAME=Dosis vital: Tu aplicación de hidratación personal
 VITE_ENABLE_PWA=true
 VITE_ENABLE_ANALYTICS=true
 ```
