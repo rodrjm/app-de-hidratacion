@@ -112,8 +112,8 @@ class ConsumoService:
         total_hidratacion = stats['total_hidratacion'] or 0
         cantidad_consumos = stats['cantidad_consumos'] or 0
         
-        # Obtener meta del usuario
-        meta_ml = self.user.meta_diaria_ml
+        # Obtener meta del usuario recalculando con los datos actuales
+        meta_ml = self.user.calcular_meta_hidratacion()
         progreso_porcentaje = (total_hidratacion / meta_ml * 100) if meta_ml > 0 else 0
         
         return {

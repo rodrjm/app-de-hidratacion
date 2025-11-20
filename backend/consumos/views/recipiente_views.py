@@ -24,7 +24,7 @@ class RecipienteViewSet(BaseViewSet, StatsMixin, FilterMixin):
     filterset_fields = ['es_favorito', 'cantidad_ml']
     search_fields = ['nombre', 'color']
     ordering_fields = ['nombre', 'cantidad_ml', 'fecha_creacion']
-    ordering = ['nombre']
+    ordering = ['cantidad_ml']  # Ordenar por cantidad_ml de menor a mayor por defecto
 
     def list(self, request, *args, **kwargs):
         """
