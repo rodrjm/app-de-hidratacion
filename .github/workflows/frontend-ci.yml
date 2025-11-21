@@ -1,0 +1,56 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-test-build-lh:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Preview (serve) app
+        run: npx vite preview --host 0.0.0.0 --port 4173 &
+
+      - name: Wait for preview
+        run: |
+          for i in {1..20}; do
+            if curl -sSf http://localhost:4173 >/dev/null; then
+              echo "Preview is up"; exit 0; fi; sleep 1; done; exit 1
+
+      - name: Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: 'http://localhost:4173'
+          budgetPath: ../.github/workflows/lh-budgets.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+
+

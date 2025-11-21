@@ -1,0 +1,113 @@
+---
+alwaysApply: true
+---
+# Reglas de Desarrollo Backend (Python/Django)
+Como experto en Python y Django, te guiarás por los siguientes principios para construir un backend robusto y escalable.
+
+## Principios Clave
+- Django-First: Siempre que sea posible, utiliza las funcionalidades integradas de Django para aprovechar su poder y acelerar el desarrollo. No reinventes la rueda.
+- Código Limpio y Mantenible: Sigue las convenciones de estilo de código PEP 8. Usa nombres descriptivos para variables, funciones y clases (snake_case para funciones y variables, CamelCase para clases).
+- Arquitectura Modular: Divide la aplicación en apps de Django (ej., usuarios, consumos, pagos). Cada app debe tener una responsabilidad única, lo que facilita la reutilización y el mantenimiento.
+
+## Guías de Implementación
+
+###  Modelos y ORM:
+- Usa el ORM de Django para todas las interacciones con la base de datos. Evita las consultas SQL crudas a menos que sean absolutamente necesarias por motivos de rendimiento.
+- Mantén la lógica de negocio en los modelos o en gestores de modelos personalizados (managers.py). Esto mantiene las vistas "ligeras".
+- Optimiza las consultas usando select_related() y prefetch_related() para prevenir el problema de N+1 consultas.
+- Utiliza transaction.atomic() para asegurar la consistencia de los datos en operaciones críticas.
+
+### Vistas y API (Django REST Framework):
+- Usa Clase-Basadas de Vistas (CBV) para una estructura de código más organizada y reutilizable.
+- Sigue los principios RESTful con los métodos HTTP y códigos de estado apropiados (ej., GET, POST, PUT, DELETE).
+- Implementa un formato de respuesta consistente, tanto para casos de éxito como de error. Usa serializadores de DRF (serializers.py) para la validación de datos y la serialización.
+- Define las URL en urls.py de forma clara y lógica.
+
+### Seguridad:
+- Aprovecha las protecciones de seguridad integradas de Django, como la protección contra CSRF, inyección SQL y XSS.
+- Utiliza JWT (djangorestframework_simplejwt) para la autenticación sin estado en la API.
+- Implementa permisos granulares (permissions.py) para controlar el acceso a los datos.
+### Manejo de Errores y Validaciones:
+- Utiliza los serializadores de DRF para la validación de datos de entrada.
+- Implementa un manejador de excepciones global (exceptions.py) para centralizar el manejo de errores y asegurar respuestas uniformes.
+- Usa bloques try-except para manejar excepciones específicas en la lógica de negocio.
+- Nunca dejes de manejar una excepción.
+
+# Reglas de Desarrollo Frontend (ReactJS)
+Como experto en React, JavaScript y UI/UX, seguirás estas reglas para construir una interfaz de usuario fluida, accesible y modular.
+
+## Principios Clave
+- Modularidad y Reutilización: Construye la interfaz con componentes de React pequeños y reutilizables. Cada componente debe tener una única responsabilidad.
+- Código Limpio y Consistente: Usa constantes para las funciones (ej., const handleClick = () => {}) y nombres descriptivos (ej., handleButtonClick, fetchUserData).
+- Diseño Móvil Primero: Aplica los principios de "mobile-first" en el diseño y la implementación con Tailwind CSS para asegurar una experiencia óptima en dispositivos móviles.
+
+## Guías de Implementación
+
+### Estructura de Componentes:
+- Organiza los componentes en carpetas lógicas (components/, pages/, hooks/, etc.).
+- Mantén los archivos de componentes por debajo de 500 líneas. Si se acercan a las 400, divídelos en componentes más pequeños o en archivos de ayuda.
+
+### Estilo con Tailwind CSS:
+- Usa exclusivamente las clases de Tailwind para el estilo. Evita CSS personalizado o inline.
+- Utiliza class: en lugar del operador ternario para las clases condicionales cuando sea posible, mejorando la legibilidad.
+
+### Gestión de Estado:
+- Utiliza el estado de React (useState, useReducer) o librerías como Zustand o Redux Toolkit para gestionar el estado de la aplicación.
+- Usa Context API o librerías de estado para compartir datos globales a través de la aplicación.
+
+### Lógica de Negocio y UI:
+- Sigue el patrón ViewModel/Manager/Coordinator.
+- Vistas/Componentes de UI: Se encargan solo de la presentación y de manejar los eventos del usuario. No contienen lógica de negocio.
+- Lógica de Negocio/Managers: Separa la lógica de negocio (ej., llamadas a la API, cálculos) en archivos dedicados.
+- Lógica de Estado/ViewModels: Contiene el estado y las funciones que manipulan los datos para la UI.
+
+### Accesibilidad (a11y):
+- Implementa atributos de accesibilidad (aria-label, tabIndex, roles) para garantizar que la aplicación sea usable para todos.
+
+### Manejo de Eventos:
+- Usa el prefijo handle para todas las funciones de manejo de eventos (ej., handleClick, handleSubmit).
+
+### Validación y Retornos Anticipados:
+- Utiliza retornos anticipados (early returns) para mejorar la legibilidad del código y evitar anidamientos profundos.
+
+# Reglas de Arquitectura y Base de Datos (PostgreSQL)
+Como arquitecto de sistemas, tu enfoque en la base de datos se centrará en la consistencia, la escalabilidad y la eficiencia.
+
+## Principios Clave
+- Diseño Relacional: Tu base de datos es el cimiento. El diseño relacional propuesto es sólido: usuarios, consumos, recipientes, bebidas, suscripciones.
+- Integridad de Datos: Asegura la integridad de los datos usando claves primarias y foráneas para todas las relaciones.
+- Optimización: Implementa índices en las columnas que se utilizan con frecuencia en las cláusulas WHERE y JOIN para acelerar las consultas.
+
+## Guías de Implementación
+
+### Esquema de la Base de Datos:
+- usuarios: id (PK), email, password, peso, edad, es_premium, etc.
+- consumos: id (PK), usuario_id (FK a usuarios), bebida_id (FK a bebidas), cantidad_ml, fecha_hora.
+- recipientes: id (PK), usuario_id (FK a usuarios), nombre, cantidad_ml.
+- bebidas: id (PK), nombre, factor_hidratacion.
+- suscripciones: id (PK), usuario_id (FK a usuarios), plan, fecha_inicio, fecha_fin.
+
+### Gestión de Cambios (Migraciones):
+- Utiliza las migraciones de Django para gestionar los cambios en el esquema de la base de datos de manera segura y controlada. Nunca modifiques la base de datos manualmente.
+
+### Transacciones:
+- Agrupa operaciones relacionadas en transacciones atómicas para garantizar que se completen por completo o se reviertan si algo falla.
+
+# Reglas de Proceso y Escalabilidad
+Mantén siempre una mentalidad de escalabilidad, independientemente del tamaño actual del proyecto.
+
+## Principios Clave
+-Metodología Ágil: Utiliza Scrum o una metodología ágil similar para gestionar el proyecto en sprints. Esto permite la flexibilidad y la adaptación a los cambios.
+- Responsabilidad Única: Cada archivo, clase o función debe tener una sola responsabilidad. Si algo se vuelve demasiado grande o complejo, divídelo.
+- Pruebas: Escribe pruebas unitarias y de integración para asegurar la calidad y la fiabilidad del código.
+- Documentación: Documenta el código, las APIs y los procesos de desarrollo para facilitar la incorporación de nuevos miembros al equipo.
+
+## Guías de Implementación
+
+### Tamaño de las Funciones: Mantén las funciones cortas, preferiblemente menos de 40 líneas.
+
+### Tamaño de las Clases: Si una clase supera las 200 líneas, considera dividirla en clases de ayuda más pequeñas.
+
+### Reutilización del Código: Escribe código que pueda ser reutilizado en otros proyectos. Reduce el acoplamiento entre los componentes.
+
+### Manejo de Dependencias: Gestiona las dependencias del proyecto de forma clara y explícita (ej., con requirements.txt en Python o package.json en JavaScript).
