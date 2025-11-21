@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useEffect } from 'react';
-import { User } from '@/types';
+import { User, RegisterForm } from '@/types';
 import { authService } from '@/services/auth';
 
 interface AuthState {
