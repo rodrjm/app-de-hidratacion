@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # 1. Servicio de Backend (Django)
+  web:
+    build: .
+    container_name: dosisvital_django
+    restart: always
+    ports:
+      - "8000:8000"
+    # Cargar variables de entorno (incluye DB_HOST='db')
+    env_file:
+      - .env
+    depends_on:
+      - db
+    # Comando de inicio: aplica migraciones y levanta el servidor
+    command: sh -c "python manage.py makemigrations &&
+                    python manage.py migrate &&
+                    python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      # Montar el código para desarrollo (opcional, comentar en producción)
+      - .:/app
+      # Persistir logs
+      - ./logs:/app/logs
+    networks:
+      - dosisvital_network
+
+  # 2. Servicio de Base de Datos (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: dosisvital_db
+    restart: always
+    # Configuración de DB tomada del archivo .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - dosisvital_network
+
+volumes:
+  pgdata:
+
+networks:
+  dosisvital_network:
+    driver: bridge
+
