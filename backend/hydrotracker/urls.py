@@ -5,10 +5,33 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from consumos.health_views import health_check
 
+
+@require_http_methods(["GET"])
+def root_view(request):
+    """Vista raíz que proporciona información sobre la API"""
+    return JsonResponse({
+        'name': 'Dosis vital: Tu aplicación de hidratación personal API',
+        'version': '1.0.0',
+        'status': 'running',
+        'documentation': {
+            'swagger': '/api/docs/',
+            'redoc': '/api/redoc/',
+            'schema': '/api/schema/',
+        },
+        'endpoints': {
+            'health': '/api/health/',
+            'admin': '/admin/',
+        }
+    })
+
+
 urlpatterns = [
+    path('', root_view, name='root'),
     path('admin/', admin.site.urls),
     path('api/', include('users.urls')),
     path('api/', include('consumos.urls')),
