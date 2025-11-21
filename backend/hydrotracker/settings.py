@@ -7,6 +7,7 @@ import os
 import sys
 from decouple import config
 from django.core.exceptions import ImproperlyConfigured
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -105,12 +106,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'hydrotracker.wsgi.application'
 
 # Database - Configuración consciente del entorno
-# Si DB_HOST está definido (Docker), usa PostgreSQL
-# Si no está definido (desarrollo local), usa SQLite
+# Prioridad: DATABASE_URL (Render/Heroku) > DB_HOST (Docker) > SQLite (local)
+DATABASE_URL = config('DATABASE_URL', default=None)
 DB_HOST = config('DB_HOST', default=None)
 
-if DB_HOST:
-    # MODO DOCKER/PRODUCCIÓN (PostgreSQL)
+if DATABASE_URL:
+    # MODO RENDER/HEROKU (usa DATABASE_URL)
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    }
+elif DB_HOST:
+    # MODO DOCKER/PRODUCCIÓN (PostgreSQL con variables individuales)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
