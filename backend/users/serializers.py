@@ -222,13 +222,34 @@ class UserSerializer(serializers.ModelSerializer):
             'ultimo_acceso', 'es_premium', 'edad'
         ]
 
+    def _get_meta_segura(self, obj):
+        """
+        Calcula la meta dinámica asegurando que nunca sea cero
+        incluso si faltan datos históricos.
+        """
+        meta = obj.calcular_meta_hidratacion()
+        if not meta or meta <= 0:
+            meta = obj.meta_diaria_ml or 2000
+        return meta
+
     def get_meta_calculada(self, obj):
         """Retorna la meta de hidratación calculada automáticamente."""
-        return obj.calcular_meta_hidratacion()
+        return self._get_meta_segura(obj)
 
     def get_es_activo_hoy(self, obj):
         """Indica si el usuario ha tenido actividad hoy."""
         return obj.es_usuario_activo_hoy()
+    
+    def to_representation(self, instance):
+        """
+        Asegura que la meta diaria enviada al frontend esté siempre calculada
+        con la fórmula más reciente, evitando valores almacenados obsoletos.
+        """
+        data = super().to_representation(instance)
+        meta_segura = self._get_meta_segura(instance)
+        data['meta_diaria_ml'] = meta_segura
+        data['meta_calculada'] = meta_segura
+        return data
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -367,7 +388,10 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
 
     def get_meta_calculada(self, obj):
         """Retorna la meta de hidratación calculada automáticamente."""
-        return obj.calcular_meta_hidratacion()
+        meta = obj.calcular_meta_hidratacion()
+        if not meta or meta <= 0:
+            meta = obj.meta_diaria_ml or 2000
+        return meta
 
     def validate(self, attrs):
         """Valida y recalcula la meta de hidratación si es necesario."""

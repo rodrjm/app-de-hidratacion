@@ -158,7 +158,7 @@ class User(AbstractUser):
     def generar_codigo_referido(self):
         """
         Genera un código de referido único y aleatorio.
-        Formato: TOMA_ seguido de 8 caracteres alfanuméricos aleatorios.
+        Formato: 8 caracteres alfanuméricos en mayúscula.
         """
         if self.codigo_referido:
             return self.codigo_referido
@@ -167,8 +167,7 @@ class User(AbstractUser):
         while True:
             # Generar 8 caracteres alfanuméricos aleatorios
             caracteres = string.ascii_uppercase + string.digits
-            codigo_sufijo = ''.join(secrets.choice(caracteres) for _ in range(8))
-            codigo = f"TOMA_{codigo_sufijo}"
+            codigo = ''.join(secrets.choice(caracteres) for _ in range(8))
             
             # Verificar que no exista
             if not User.objects.filter(codigo_referido=codigo).exists():
@@ -221,13 +220,15 @@ class User(AbstractUser):
         - Saludable: 25 ml/kg
         - Frágil o con insuficiencia cardíaca: 20 ml/kg
         """
-        if not self.peso:
-            return self.meta_diaria_ml
+        # Fallback defensivo: si falta peso, devolver el valor almacenado
+        # o un valor seguro por defecto para evitar metas en cero.
+        if not self.peso or self.peso <= 0:
+            return self.meta_diaria_ml or 2000
 
         edad_actual = self.edad_calculada
-        if not edad_actual:
-            # Si no hay edad, usar valor por defecto
-            return self.meta_diaria_ml
+        if not edad_actual or edad_actual <= 0:
+            # Si no hay edad, usar valor almacenado o un valor seguro
+            return self.meta_diaria_ml or 2000
 
         peso_kg = self.peso
         ml_por_kg = 0
@@ -261,10 +262,14 @@ class User(AbstractUser):
 
         meta_calculada = int(peso_kg * ml_por_kg)
         
-        # Asegurar que esté dentro de límites razonables
-        meta_calculada = max(100, min(meta_calculada, 10000))
+        # Ajustar meta: restar 20% porque el 20% se obtiene de los alimentos
+        meta_calculada = int(meta_calculada * 0.80)
         
-        return meta_calculada
+        # Asegurar que esté dentro de límites razonables y consistentes con el modelo
+        meta_calculada = max(500, min(meta_calculada, 10000))
+        
+        # Último fallback por si algo resulta en cero
+        return meta_calculada or self.meta_diaria_ml or 2000
 
     def actualizar_meta_hidratacion(self):
         """Actualiza la meta de hidratación basada en los datos del usuario."""
