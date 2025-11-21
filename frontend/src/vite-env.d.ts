@@ -3,6 +3,7 @@
 declare global {
   interface Window {
     __redirectingToLogin?: boolean;
+    adsbygoogle?: unknown[];
   }
 }
 
