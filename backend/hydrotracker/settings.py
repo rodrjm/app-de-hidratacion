@@ -122,21 +122,30 @@ if DATABASE_URL and DATABASE_URL.strip():
         DATABASE_URL = None
 
 # Si DATABASE_URL no está disponible o es inválido, intentar DB_HOST
+# Nota: DB_HOST='db' solo funciona en Docker Compose, no en Render/Heroku
 if not DATABASE_URL or (isinstance(DATABASE_URL, str) and not DATABASE_URL.strip()):
-    if DB_HOST:
+    # Solo usar DB_HOST si no es 'db' (que es específico de Docker Compose)
+    # y si tenemos todas las variables necesarias configuradas
+    db_name = config('DB_NAME', default=None)
+    db_user = config('DB_USER', default=None)
+    db_password = config('DB_PASSWORD', default=None)
+    
+    if (DB_HOST and DB_HOST != 'db' and 
+        db_name and db_user and db_password):
         # MODO DOCKER/PRODUCCIÓN (PostgreSQL con variables individuales)
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.postgresql',
-                'NAME': config('DB_NAME'),
-                'USER': config('DB_USER'),
-                'PASSWORD': config('DB_PASSWORD'),
-                'HOST': DB_HOST,  # Será 'db' en Docker Compose
+                'NAME': db_name,
+                'USER': db_user,
+                'PASSWORD': db_password,
+                'HOST': DB_HOST,
                 'PORT': config('DB_PORT', default='5432'),
             }
         }
     else:
-        # MODO LOCAL (SQLite)
+        # MODO LOCAL (SQLite) - fallback cuando no hay DATABASE_URL ni DB_HOST válido
+        # Esto incluye cuando DB_HOST='db' (Docker Compose) pero no estamos en Docker
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.sqlite3',
