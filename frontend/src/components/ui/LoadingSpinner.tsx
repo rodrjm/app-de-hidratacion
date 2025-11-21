@@ -1,5 +1,5 @@
 import React from 'react';
-import { Droplets } from 'lucide-react';
+import BrandLogo from '@/components/common/BrandLogo';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -12,11 +12,11 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   message = 'Cargando...',
   fullScreen = false
 }) => {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16'
+  const logoSizeMap = {
+    sm: 32,
+    md: 64,
+    lg: 96,
+    xl: 128
   };
 
   const containerClasses = fullScreen
@@ -26,11 +26,8 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   return (
     <div className={containerClasses}>
       <div className="text-center">
-        <div className="relative">
-          <Droplets className={`${sizeClasses[size]} text-primary-500 animate-bounce-gentle`} />
-          <div className="absolute inset-0">
-            <div className={`${sizeClasses[size]} border-2 border-primary-200 rounded-full animate-spin`} />
-          </div>
+        <div className="relative animate-pulse">
+          <BrandLogo size={logoSizeMap[size]} />
         </div>
         {message && (
           <p className="mt-4 text-gray-600 animate-pulse">

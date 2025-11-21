@@ -2,6 +2,10 @@ import React, { memo, useMemo } from 'react';
 import { Droplets, Activity, Edit, Trash2 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import { Actividad, Consumo } from '@/types';
+import AdSenseBlock from '@/components/ads/AdSenseBlock';
+
+// ID del bloque de anuncios para el Historial (In-Feed)
+const AD_HISTORIAL_ID = '9721342305';
 
 interface DashboardRecentHistoryProps {
   consumos: Consumo[];
@@ -94,13 +98,13 @@ const DashboardRecentHistory: React.FC<DashboardRecentHistoryProps> = memo(({
     });
   }, [actividadesHoy, hoyStr]);
 
-  // Combinar consumos y actividades en un solo array
+  // Combinar consumos y actividades en un solo array, con inserción de anuncio
   const historialReciente = useMemo(() => {
     const items: Array<{
       id: string;
-      tipo: 'consumo' | 'actividad';
-      fecha_hora: string;
-      data: Consumo | Actividad;
+      tipo: 'consumo' | 'actividad' | 'ad';
+      fecha_hora?: string;
+      data?: Consumo | Actividad;
     }> = [
       ...consumosHoy.map(c => ({
         id: `consumo-${c.id}`,
@@ -117,11 +121,18 @@ const DashboardRecentHistory: React.FC<DashboardRecentHistoryProps> = memo(({
     ];
 
     // Ordenar por fecha/hora (más reciente primero)
-    items.sort((a, b) => 
-      new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime()
-    );
+    items.sort((a, b) => {
+      if (!a.fecha_hora || !b.fecha_hora) return 0;
+      return new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime();
+    });
 
-    return items.slice(0, 5);
+    // Insertar anuncio después del 3er item si hay 3 o más items
+    const itemsWithAd = [...items];
+    if (itemsWithAd.length >= 3) {
+      itemsWithAd.splice(3, 0, { id: 'ad-slot-1', tipo: 'ad' });
+    }
+
+    return itemsWithAd;
   }, [consumosHoy, actividadesHoyFiltradas]);
 
   if (historialReciente.length === 0) {
@@ -141,14 +152,16 @@ const DashboardRecentHistory: React.FC<DashboardRecentHistoryProps> = memo(({
           <div className="flex flex-col gap-2 max-w-xs mx-auto">
             <button
               onClick={onAddConsumo}
-              className="px-4 py-2 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg font-display font-bold transition-colors"
+              className="px-4 py-2 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg font-display font-bold transition-colors flex items-center justify-center gap-2"
             >
+              <Droplets className="w-5 h-5" />
               Registrar Consumo
             </button>
             <button
               onClick={onAddActividad}
-              className="px-4 py-2 bg-accent-500 hover:bg-accent-600 text-white rounded-lg font-display font-bold transition-colors"
+              className="px-4 py-2 bg-accent-500 hover:bg-accent-600 text-white rounded-lg font-display font-bold transition-colors flex items-center justify-center gap-2"
             >
+              <Activity className="w-5 h-5" />
               Registrar Actividad
             </button>
           </div>
@@ -161,6 +174,21 @@ const DashboardRecentHistory: React.FC<DashboardRecentHistoryProps> = memo(({
     <Card title="📋 Historial Reciente">
       <div className="space-y-0">
         {historialReciente.map((item) => {
+          // Renderizar anuncio si es de tipo 'ad'
+          if (item.tipo === 'ad') {
+            return (
+              <div key={item.id} className="bg-yellow-50 p-3 rounded-lg border-2 border-yellow-200 my-2">
+                <p className="text-xs text-yellow-800 font-bold mb-1">PUBLICIDAD</p>
+                <AdSenseBlock 
+                  adSlotId={AD_HISTORIAL_ID} 
+                  className="w-full"
+                  style={{ minHeight: '80px' }}
+                  format="fluid" 
+                />
+              </div>
+            );
+          }
+
           const esConsumo = item.tipo === 'consumo';
           const consumo = esConsumo ? (item.data as Consumo) : null;
           const actividad = !esConsumo ? (item.data as Actividad) : null;

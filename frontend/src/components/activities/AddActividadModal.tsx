@@ -12,21 +12,22 @@ interface AddActividadModalProps {
   actividadEditar?: { id: number; data: ActividadForm };
 }
 
+// Opciones de actividades ordenadas alfabéticamente por nombre
 const TIPO_ACTIVIDAD_OPTIONS = [
-  { value: 'correr', label: 'Correr' },
-  { value: 'ciclismo', label: 'Ciclismo' },
-  { value: 'natacion', label: 'Natación' },
-  { value: 'futbol_rugby', label: 'Fútbol / Rugby' },
-  { value: 'baloncesto_voley', label: 'Baloncesto / Vóley' },
-  { value: 'gimnasio', label: 'Gimnasio' },
-  { value: 'crossfit_hiit', label: 'CrossFit / Entrenamiento HIIT' },
-  { value: 'padel_tenis', label: 'Pádel / Tenis' },
   { value: 'baile_aerobico', label: 'Baile aeróbico' },
-  { value: 'caminata_rapida', label: 'Caminata rápida' },
-  { value: 'pilates', label: 'Pilates' },
+  { value: 'baloncesto_voley', label: 'Baloncesto / Vóley' },
   { value: 'caminata', label: 'Caminata' },
-  { value: 'yoga_hatha', label: 'Yoga (Hatha/Suave)' },
+  { value: 'caminata_rapida', label: 'Caminata rápida' },
+  { value: 'ciclismo', label: 'Ciclismo' },
+  { value: 'correr', label: 'Correr' },
+  { value: 'crossfit_hiit', label: 'CrossFit / Entrenamiento HIIT' },
+  { value: 'futbol_rugby', label: 'Fútbol / Rugby' },
+  { value: 'gimnasio', label: 'Gimnasio' },
+  { value: 'natacion', label: 'Natación' },
+  { value: 'padel_tenis', label: 'Pádel / Tenis' },
+  { value: 'pilates', label: 'Pilates' },
   { value: 'yoga_bikram', label: 'Yoga (Bikram/Caliente)' },
+  { value: 'yoga_hatha', label: 'Yoga (Hatha/Suave)' },
 ] as const;
 
 const INTENSIDAD_OPTIONS = [
@@ -39,7 +40,7 @@ const AddActividadModal: React.FC<AddActividadModalProps> = ({ onSubmit, onClose
   const { user } = useAuthStore();
   // Estados separados para tipo de actividad e intensidad
   const [tipoActividad, setTipoActividad] = useState<string>(
-    actividadEditar?.data.tipo_actividad || 'correr'
+    actividadEditar?.data.tipo_actividad || 'caminata'  // Por defecto: "Caminata"
   );
   const [intensidad, setIntensidad] = useState<string>(
     actividadEditar?.data.intensidad || 'media'

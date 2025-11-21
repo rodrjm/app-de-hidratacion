@@ -24,7 +24,7 @@ const AddConsumoModal: React.FC<AddConsumoModalProps> = ({ bebidas, recipientes,
     consumoEditar?.bebida || bebidas.find(b => b.es_agua)?.id || bebidas[0]?.id
   );
   const [cantidadMode, setCantidadMode] = useState<CantidadMode>(() => 
-    consumoEditar?.recipiente ? 'recipiente' : 'personalizada'
+    consumoEditar?.recipiente ? 'recipiente' : 'recipiente'  // Por defecto: "Por recipiente"
   );
   const [recipienteId, setRecipienteId] = useState<number | null>(() => 
     consumoEditar?.recipiente || recipientes[0]?.id || null
@@ -37,7 +37,10 @@ const AddConsumoModal: React.FC<AddConsumoModalProps> = ({ bebidas, recipientes,
   const [showSugerirModal, setShowSugerirModal] = useState(false);
 
   const bebidaOptions = useMemo(() => bebidas, [bebidas]);
-  const recipienteOptions = useMemo(() => recipientes, [recipientes]);
+  // Ordenar recipientes por cantidad_ml de menor a mayor
+  const recipienteOptions = useMemo(() => {
+    return [...recipientes].sort((a, b) => a.cantidad_ml - b.cantidad_ml);
+  }, [recipientes]);
 
   // Calcular cantidad según el modo seleccionado
   const cantidad = cantidadMode === 'recipiente' && recipienteId
