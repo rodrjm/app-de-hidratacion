@@ -104,17 +104,35 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'hydrotracker.wsgi.application'
 
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='hydrotracker'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='password'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+# Database - Configuración consciente del entorno
+# Si DB_HOST está definido (Docker), usa PostgreSQL
+# Si no está definido (desarrollo local), usa SQLite
+DB_HOST = config('DB_HOST', default=None)
+
+if DB_HOST:
+    # MODO DOCKER/PRODUCCIÓN (PostgreSQL)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME'),
+            'USER': config('DB_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': DB_HOST,  # Será 'db' en Docker Compose
+            'PORT': config('DB_PORT', default='5432'),
+        }
     }
-}
+else:
+    # MODO LOCAL (SQLite)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+    # Configuración adicional para SQLite
+    DATABASES['default']['OPTIONS'] = {
+        'timeout': 20,
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
