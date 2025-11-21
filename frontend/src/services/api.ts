@@ -65,7 +65,10 @@ class ApiService {
           
           // Solo redirigir si no estamos en login/register y hay token
           if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-            const hasToken = sessionStorage.getItem('access_token');
+            // Verificar en ambos storages
+            const rememberMe = localStorage.getItem('rememberMe') === 'true';
+            const storage = rememberMe ? localStorage : sessionStorage;
+            const hasToken = storage.getItem('access_token') || sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
             
             // Si hay token pero falla, probablemente expiró - limpiar y redirigir
             if (hasToken) {
@@ -96,28 +99,71 @@ class ApiService {
   }
 
   private loadTokenFromStorage() {
-    // Usar sessionStorage en lugar de localStorage para mayor seguridad
-    // sessionStorage se limpia automáticamente al cerrar la pestaña
-    const token = sessionStorage.getItem('access_token');
-    if (token) {
-      this.setToken(token);
+    // Buscar token en ambos storages para asegurar que se encuentre
+    // Primero verificar localStorage (para usuarios con "Recordarme")
+    let token = localStorage.getItem('access_token');
+    let rememberMe = localStorage.getItem('rememberMe') === 'true';
+    
+    // Si no hay token en localStorage, buscar en sessionStorage
+    if (!token) {
+      token = sessionStorage.getItem('access_token');
+      rememberMe = false;
     }
+    
+    // Si encontramos un token en localStorage pero no hay preferencia de rememberMe,
+    // establecerla automáticamente
+    if (token && localStorage.getItem('access_token') && !localStorage.getItem('rememberMe')) {
+      localStorage.setItem('rememberMe', 'true');
+    }
+    
+    if (token) {
+      this.token = token;
+    }
+  }
+
+  private getStorage(): Storage {
+    // Determinar qué storage usar basado en la preferencia de "Recordarme"
+    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    return rememberMe ? localStorage : sessionStorage;
   }
 
   public setToken(token: string) {
     this.token = token;
-    // Usar sessionStorage en lugar de localStorage para reducir riesgo de XSS
-    sessionStorage.setItem('access_token', token);
+    const storage = this.getStorage();
+    storage.setItem('access_token', token);
   }
 
   public clearToken() {
     this.token = null;
+    // Limpiar de ambos storages para asegurar limpieza completa
     sessionStorage.removeItem('access_token');
     sessionStorage.removeItem('refresh_token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('rememberMe');
   }
 
   public getToken(): string | null {
-    return this.token;
+    // Si ya hay token en memoria, retornarlo
+    if (this.token) {
+      return this.token;
+    }
+    
+    // Si no hay token en memoria, buscar en ambos storages
+    // Primero verificar localStorage (para usuarios con "Recordarme")
+    let token = localStorage.getItem('access_token');
+    
+    // Si no hay token en localStorage, buscar en sessionStorage
+    if (!token) {
+      token = sessionStorage.getItem('access_token');
+    }
+    
+    // Si encontramos un token, guardarlo en memoria
+    if (token) {
+      this.token = token;
+    }
+    
+    return token;
   }
 
   public async get<T>(url: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {

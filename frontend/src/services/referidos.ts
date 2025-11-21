@@ -25,14 +25,14 @@ class ReferidosService {
    * Obtener información de referidos del usuario autenticado
    */
   async getReferidosInfo(): Promise<ReferidosInfo> {
-    return await apiService.get<ReferidosInfo>('/users/referidos/info/');
+    return await apiService.get<ReferidosInfo>('/referidos/info/');
   }
 
   /**
    * Reclamar recompensa de referidos (1 mes Premium gratis)
    */
   async reclamarRecompensa(): Promise<ReclamarRecompensaResponse> {
-    return await apiService.post<ReclamarRecompensaResponse>('/users/referidos/reclamar/');
+    return await apiService.post<ReclamarRecompensaResponse>('/referidos/reclamar/');
   }
 }
 

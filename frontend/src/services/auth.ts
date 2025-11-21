@@ -39,7 +39,7 @@ class AuthService {
   /**
    * Inicia sesión con email y contraseña.
    * 
-   * @param credentials - Credenciales de login (email y password)
+   * @param credentials - Credenciales de login (email, password y rememberMe opcional)
    * @returns Promise con datos del usuario y tokens JWT
    * @throws Error si las credenciales son inválidas
    * 
@@ -48,7 +48,8 @@ class AuthService {
    * try {
    *   const response = await authService.login({
    *     email: 'user@example.com',
-   *     password: 'password123'
+   *     password: 'password123',
+   *     rememberMe: true
    *   });
    *   console.log('Usuario autenticado:', response.user);
    * } catch (error) {
@@ -58,8 +59,9 @@ class AuthService {
    */
   async login(credentials: LoginForm): Promise<LoginResponse> {
     try {
+      const { rememberMe, ...loginData } = credentials;
       type LoginBackendResponse = { user: User; access: string; refresh: string };
-      const response = await apiService.post<LoginBackendResponse>('/login/', credentials);
+      const response = await apiService.post<LoginBackendResponse>('/login/', loginData);
       
       // El backend devuelve access y refresh directamente, no dentro de tokens
       const loginResponse: LoginResponse = {
@@ -70,9 +72,17 @@ class AuthService {
         }
       };
       
-      // Guardar tokens en sessionStorage (más seguro que localStorage)
+      // Usar localStorage si rememberMe es true, sessionStorage si es false
+      const storage = rememberMe ? localStorage : sessionStorage;
       apiService.setToken(loginResponse.tokens.access);
-      sessionStorage.setItem('refresh_token', loginResponse.tokens.refresh);
+      storage.setItem('refresh_token', loginResponse.tokens.refresh);
+      
+      // Guardar preferencia de "Recordarme" para futuras sesiones
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+      } else {
+        localStorage.removeItem('rememberMe');
+      }
       
       return loginResponse;
     } catch (error: unknown) {
@@ -141,7 +151,11 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      const refreshToken = sessionStorage.getItem('refresh_token');
+      // Buscar refresh token en el storage apropiado
+      const rememberMe = localStorage.getItem('rememberMe') === 'true';
+      const storage = rememberMe ? localStorage : sessionStorage;
+      const refreshToken = storage.getItem('refresh_token') || sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
+      
       if (refreshToken) {
         await apiService.post('/logout/', { refresh_token: refreshToken });
       }
@@ -159,7 +173,11 @@ class AuthService {
    */
   async refreshToken(): Promise<string> {
     try {
-      const refreshToken = sessionStorage.getItem('refresh_token');
+      // Buscar refresh token en el storage apropiado
+      const rememberMe = localStorage.getItem('rememberMe') === 'true';
+      const storage = rememberMe ? localStorage : sessionStorage;
+      const refreshToken = storage.getItem('refresh_token') || sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
+      
       if (!refreshToken) {
         throw new Error('No hay token de renovación');
       }
