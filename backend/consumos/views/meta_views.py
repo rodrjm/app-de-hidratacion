@@ -44,6 +44,8 @@ class MetaFijaView(APIView):
         # Para usuarios premium, usar su meta personalizada
         if request.user.es_premium:
             meta_ml = request.user.calcular_meta_hidratacion()
+            if not meta_ml or meta_ml <= 0:
+                meta_ml = request.user.meta_diaria_ml or meta_fija_ml
             tipo_meta = 'personalizada'
             descripcion = 'Meta personalizada basada en tu perfil'
             es_personalizable = True

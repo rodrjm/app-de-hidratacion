@@ -23,33 +23,42 @@ class PremiumGoalView(APIView):
 
     def get(self, request):
         """
-        Calcula la meta personalizada basada en peso y actividad.
+        Calcula la meta personalizada basada en peso, edad y perfil del usuario.
+        Usa el mismo método calcular_meta_hidratacion() que el resto de la aplicación.
         """
         user = request.user
         
         # Obtener datos del usuario
         peso_kg = user.peso
-        nivel_actividad = getattr(user, 'nivel_actividad', 'moderate')
+        nivel_actividad = getattr(user, 'nivel_actividad', 'moderado')
         
-        # Factores de actividad
+        # Usar el método estándar de cálculo de meta que incluye:
+        # - Cálculo basado en edad y peso
+        # - Reducción del 20% (porque el 20% viene de los alimentos)
+        # - Límites de seguridad
+        meta_ml = user.calcular_meta_hidratacion()
+        
+        # Fallback defensivo
+        if not meta_ml or meta_ml <= 0:
+            meta_ml = user.meta_diaria_ml or 2000
+        
+        # Factores de actividad (para información, aunque no se usen en el cálculo)
         activity_factors = {
-            'low': 1.0,
-            'moderate': 1.2,
-            'high': 1.4,
-            'very_high': 1.6
+            'sedentario': 1.0,
+            'ligero': 1.1,
+            'moderado': 1.2,
+            'intenso': 1.4,
+            'muy_intenso': 1.6
         }
         
         factor_actividad = activity_factors.get(nivel_actividad, 1.2)
-        
-        # Calcular meta personalizada
-        meta_ml = int(peso_kg * 35 * factor_actividad)
         
         data = {
             'meta_ml': meta_ml,
             'peso_kg': peso_kg,
             'nivel_actividad': nivel_actividad,
             'factor_actividad': factor_actividad,
-            'formula_usada': f'peso_kg * 35 * factor_actividad'
+            'formula_usada': 'calcular_meta_hidratacion() - Basada en edad, peso y perfil de salud'
         }
         
         serializer = PremiumGoalSerializer(data)
