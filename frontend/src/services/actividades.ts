@@ -40,7 +40,7 @@ export const actividadesService = {
     const url = fecha 
       ? `/actividades/resumen_dia/?fecha=${fecha}`
       : '/actividades/resumen_dia/';
-    const response = await apiService.get(url);
+    const response = await apiService.get<{ fecha: string; cantidad_actividades: number; pse_total: number; actividades: Actividad[] }>(url);
     return response;
   },
 
@@ -55,7 +55,7 @@ export const actividadesService = {
   /**
    * Actualiza una actividad existente
    */
-  async updateActividad(id: number, data: Partial<ActividadCreate>): Promise<Actividad> {
+  async updateActividad(id: number, data: Partial<ActividadForm>): Promise<Actividad> {
     const response = await apiService.put<Actividad>(`/actividades/${id}/`, data);
     return response;
   },

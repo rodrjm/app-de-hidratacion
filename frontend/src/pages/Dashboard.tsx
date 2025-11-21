@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Droplets, Activity } from 'lucide-react';
 import { useConsumosStore } from '@/store/consumosStore';
 import { useAuthStore } from '@/store/authStore';
@@ -18,7 +17,7 @@ import DashboardTips from '@/components/dashboard/DashboardTips';
 import DashboardPremiumCard from '@/components/dashboard/DashboardPremiumCard';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [showAddConsumoModal, setShowAddConsumoModal] = useState(false);
   const [showAddActividadModal, setShowAddActividadModal] = useState(false);
   const [actividadEditar, setActividadEditar] = useState<{ id: number; data: ActividadForm } | undefined>(undefined);

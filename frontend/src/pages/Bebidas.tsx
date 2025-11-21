@@ -25,7 +25,6 @@ const Bebidas: React.FC = () => {
       // Si no es premium, cargar bebidas gratuitas y algunas premium para preview
       fetchBebidas();
       // Cargar algunas bebidas premium para mostrar como preview
-      setIsLoadingPremium(true);
       bebidasService.getBebidas({ es_premium: true, activa: true })
         .then(response => {
           // Tomar solo las primeras 3 bebidas premium
@@ -34,9 +33,6 @@ const Bebidas: React.FC = () => {
         })
         .catch(error => {
           console.error('Error al cargar bebidas premium preview:', error);
-        })
-        .finally(() => {
-          setIsLoadingPremium(false);
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

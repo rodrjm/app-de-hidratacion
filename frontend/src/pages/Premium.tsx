@@ -10,6 +10,8 @@ const Premium: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [status, setStatus] = useState<{ is_premium: boolean; subscription_end_date?: string } | null>(null);
+  const [features, setFeatures] = useState<string[]>([]);
+  const [upgrade, setUpgrade] = useState<{ message: string; features: string[] } | null>(null);
   const [noAds, setNoAds] = useState<boolean>(false);
 
   useEffect(() => {

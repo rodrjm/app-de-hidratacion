@@ -144,7 +144,7 @@ const Profile: React.FC = () => {
     toast.success('Perfil actualizado (demo)');
   };
 
-  const onSubmitPassword = async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+  const onSubmitPassword = async (_data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
     try {
       // TODO: Implementar cambio de contraseña cuando esté disponible en el backend
       toast.success('Contraseña cambiada (demo)');
