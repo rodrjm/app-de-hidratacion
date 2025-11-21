@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Eye, EyeOff, Droplets } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'react-hot-toast';
 import Button from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import Card from '@/components/ui/Card';
 import ErrorAlert from '@/components/ui/ErrorAlert';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 import { LoginForm } from '@/types';
+import BrandLogo from '@/components/common/BrandLogo';
 
 declare global {
   interface Window {
@@ -61,7 +62,7 @@ const Login: React.FC = () => {
   const onSubmit = async (data: LoginForm) => {
     try {
       clearError();
-      await login(data.email, data.password);
+      await login(data.email, data.password, data.rememberMe || false);
       toast.success('¡Bienvenido de vuelta! 🎉');
       navigate('/dashboard');
     } catch (error) {
@@ -137,13 +138,8 @@ const Login: React.FC = () => {
     <div className="min-h-screen bg-primary-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Logo and Title */}
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-secondary-500 rounded-full flex items-center justify-center mb-4 shadow-medium">
-            <Droplets className="h-8 w-8 text-white" />
-          </div>
-          <h2 className="text-3xl font-display font-bold text-neutral-700">
-            Dosis vital: Tu aplicación de hidratación personal
-          </h2>
+        <div className="text-center flex flex-col items-center">
+          <BrandLogo size={109} className="mb-6" withText />
           <p className="mt-2 text-sm text-neutral-600">
             Tu asistente de hidratación personal
           </p>
@@ -214,6 +210,7 @@ const Login: React.FC = () => {
               <label className="flex items-center">
                 <input
                   type="checkbox"
+                  {...register('rememberMe')}
                   className="h-4 w-4 text-accent-600 focus:ring-accent-500 border-neutral-300 rounded"
                 />
                 <span className="ml-2 text-sm text-neutral-600">

@@ -7,12 +7,27 @@ import { toast } from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
+import PageHeader from '@/components/layout/PageHeader';
 import { User as UserType } from '@/types';
 import { monetizationService } from '@/services/monetization';
 import { referidosService } from '@/services/referidos';
 import FeedbackModal from '@/components/feedback/FeedbackModal';
+import AdSenseBlock from '@/components/ads/AdSenseBlock';
+
+// ID del bloque de anuncios para Configuración/Ajustes
+const AD_SETTINGS_ID = '3403345967';
 
 type TabType = 'basic' | 'security' | 'preferences' | 'account' | 'catalogs';
+
+const TAB_IDS: TabType[] = ['basic', 'security', 'preferences', 'account', 'catalogs'];
+
+const getInitialTab = (): TabType => {
+  const stored = localStorage.getItem('profile_active_tab') as TabType | null;
+  if (stored && TAB_IDS.includes(stored)) {
+    return stored;
+  }
+  return 'basic';
+};
 
 const Profile: React.FC = () => {
   const { user, logout, isLoading } = useAuthStore();
@@ -20,7 +35,7 @@ const Profile: React.FC = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('basic');
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
   // Preferencias de notificaciones
@@ -105,9 +120,9 @@ const Profile: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Load referidos data when catalogs tab is active
+  // Load referidos data when account tab is active
   useEffect(() => {
-    if (activeTab === 'catalogs') {
+    if (activeTab === 'account') {
       const loadReferidos = async () => {
         try {
           setLoadingReferidos(true);
@@ -115,20 +130,15 @@ const Profile: React.FC = () => {
           setReferidosInfo(info);
           setReferralCount(info.referidos_pendientes);
         } catch (error) {
-          // Si falla, usar valores por defecto
-          setReferidosInfo({
-            codigo_referido: user?.username ? `TOMA_${user.username.toUpperCase()}` : 'TOMA_USER',
-            referidos_verificados: 0,
-            referidos_pendientes: 0,
-            tiene_recompensa_disponible: false
-          });
+          setReferidosInfo(null);
+          toast.error('No pudimos cargar tu código de referidos. Intenta nuevamente.');
         } finally {
           setLoadingReferidos(false);
         }
       };
       loadReferidos();
     }
-  }, [activeTab, user?.username]);
+  }, [activeTab]);
 
   const onSubmitProfile = async (_data: Partial<UserType>) => {
     toast.success('Perfil actualizado (demo)');
@@ -151,12 +161,17 @@ const Profile: React.FC = () => {
     navigate('/premium');
   };
 
-  const tabs = [
-    { id: 'basic' as TabType, label: 'Información Básica', icon: User },
-    { id: 'security' as TabType, label: 'Seguridad', icon: Lock },
-    { id: 'preferences' as TabType, label: 'Preferencias y Recordatorios', icon: Bell },
-    { id: 'account' as TabType, label: 'Cuenta y Suscripción', icon: CreditCard },
-    { id: 'catalogs' as TabType, label: 'Catálogos y Herramientas', icon: Settings }
+  const handleTabChange = (tabId: TabType) => {
+    setActiveTab(tabId);
+    localStorage.setItem('profile_active_tab', tabId);
+  };
+
+const tabs = [
+  { id: 'basic' as TabType, label: 'Información Básica', icon: User },
+  { id: 'security' as TabType, label: 'Seguridad', icon: Lock },
+  { id: 'preferences' as TabType, label: 'Preferencias y Recordatorios', icon: Bell },
+  { id: 'account' as TabType, label: 'Cuenta y Suscripción', icon: CreditCard },
+  { id: 'catalogs' as TabType, label: 'Catálogos y Herramientas', icon: Settings }
   ];
 
   const getTituloSeccion = (seccion: TabType): string => {
@@ -176,50 +191,50 @@ const Profile: React.FC = () => {
     }
   };
 
+  const activeTabConfig = tabs.find((tab) => tab.id === activeTab);
+  const ActiveIcon = activeTabConfig?.icon || User;
+
   return (
     <div className="min-h-screen bg-primary-50">
-      {/* Header */}
-      <div className="bg-white shadow-card border-b border-neutral-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-display font-bold text-neutral-700">
-                {getTituloSeccion(activeTab)}
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              {user?.es_premium && (
-                <span className="px-3 py-1 bg-secondary-500 text-white text-sm font-display font-medium rounded-full">
-                  Premium
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title={getTituloSeccion(activeTab)}
+        subtitle="Gestiona tu perfil y personaliza tu experiencia de hidratación"
+        icon={<ActiveIcon className="w-10 h-10" />}
+        actions={
+          user?.es_premium ? (
+            <span className="px-3 py-1 bg-white/20 text-white text-sm font-display font-medium rounded-full border border-white/30">
+              Premium
+            </span>
+          ) : null
+        }
+      />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex gap-6">
           {/* Sidebar */}
-          <div className="flex-shrink-0 w-14">
+          <div className="flex-shrink-0 w-16">
             <Card className="p-1.5">
               <nav className="flex flex-col space-y-1.5">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors ${
-                        activeTab === tab.id
-                          ? 'bg-accent-50 text-accent-700'
-                          : 'text-neutral-600 hover:bg-neutral-50'
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`w-full flex items-center justify-center px-3 py-2 rounded-lg transition-all ${
+                        isActive
+                          ? 'bg-white text-accent-700 shadow-md ring-1 ring-accent-200'
+                          : 'text-neutral-500 hover:bg-white/70 shadow-sm'
                       }`}
                       title={tab.label}
                       aria-label={tab.label}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon 
+                        className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-accent-600' : 'text-neutral-500'}`}
+                        strokeWidth={2}
+                      />
                     </button>
                   );
                 })}
@@ -726,6 +741,127 @@ const Profile: React.FC = () => {
                   )}
                 </Card>
 
+                {/* Programa de Referidos */}
+                <Card title="Programa de Referidos">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-base font-display font-bold text-neutral-700 mb-2">
+                        ¡Recomendá y gana 1 mes Premium gratis!
+                      </h3>
+                      <p className="text-sm text-neutral-600 mb-4">
+                        Ganá un mes gratis por cada 3 amigos que se registren y verifiquen su cuenta con tu código.
+                      </p>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-display font-medium text-neutral-700">
+                          Progreso: {referidosInfo?.referidos_pendientes || referralCount}/3 Referidos
+                        </span>
+                        {referidosInfo?.tiene_recompensa_disponible && (
+                          <span className="text-sm font-display font-medium text-secondary-500 flex items-center">
+                            <Gift className="w-4 h-4 mr-1" />
+                            ¡Recompensa disponible!
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full bg-neutral-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className="bg-secondary-500 h-full transition-all duration-300 rounded-full"
+                          style={{ width: `${Math.min(((referidosInfo?.referidos_pendientes || referralCount) / 3) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        {[1, 2, 3].map((num) => (
+                          <div
+                            key={num}
+                            className={`w-2 h-2 rounded-full ${
+                              num <= (referidosInfo?.referidos_pendientes || referralCount) ? 'bg-secondary-500' : 'bg-neutral-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Código de referido */}
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 mb-4">
+                      <label className="block text-xs font-display font-medium text-neutral-500 mb-2">
+                        Tu Código de Referido
+                      </label>
+                      {referidosInfo ? (
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 bg-white border border-neutral-300 rounded px-3 py-2 text-lg font-mono font-bold text-neutral-700">
+                            {referidosInfo.codigo_referido}
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(referidosInfo.codigo_referido);
+                              setCodeCopied(true);
+                              toast.success('Código copiado al portapapeles');
+                              setTimeout(() => setCodeCopied(false), 2000);
+                            }}
+                            className="flex-shrink-0"
+                          >
+                            <Copy className={`w-4 h-4 ${codeCopied ? 'text-secondary-500' : ''}`} />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const message = encodeURIComponent(
+                                `¡Sumate a "Dosis vital: Tu aplicación de hidratación personal" y controlá tu hidratación de manera científica! 🚰\n\nUsá mi código de referido: ${referidosInfo.codigo_referido}\n\nRegistrate aquí: ${window.location.origin}/register?ref=${referidosInfo.codigo_referido}`
+                              );
+                              window.open(`https://wa.me/?text=${message}`, '_blank');
+                            }}
+                            className="flex-shrink-0"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-500">Generando tu código único...</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            loading={loadingReferidos}
+                            disabled
+                          >
+                            Cargando
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Botón de Reclamar Recompensa */}
+                    {referidosInfo?.tiene_recompensa_disponible && (
+                      <Button
+                        variant="primary"
+                        className="w-full"
+                        onClick={() => setShowClaimRewardModal(true)}
+                        disabled={loadingReferidos}
+                      >
+                        <Gift className="w-4 h-4 mr-2" />
+                        Reclamar 1 Mes Premium Gratis
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+                {/* Anuncio en Configuración/Ajustes */}
+                {!premiumStatus?.is_premium && (
+                  <div className="my-6">
+                    <AdSenseBlock 
+                      adSlotId={AD_SETTINGS_ID} 
+                      className="w-full mx-auto"
+                      style={{ minHeight: '90px' }}
+                      format="auto" 
+                    />
+                  </div>
+                )}
+
                 <Card title="Zona de Peligro" subtitle="Acciones que no se pueden deshacer">
                   <div className="space-y-4">
                     <div className="bg-error-50 border border-error-200 rounded-lg p-4">
@@ -818,103 +954,6 @@ const Profile: React.FC = () => {
                     <Button variant="outline" size="sm" onClick={() => navigate('/recipientes')}>
                       Abrir
                     </Button>
-                  </div>
-                </Card>
-
-                <Card title="Programa de Referidos">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-base font-display font-bold text-neutral-700 mb-2">
-                        ¡Recomendá y Gana 1 Mes Premium Gratis!
-                      </h3>
-                      <p className="text-sm text-neutral-600 mb-4">
-                        Ganá un mes gratis por cada 3 amigos que se registren y verifiquen su cuenta con tu código.
-                      </p>
-                    </div>
-
-                    {/* Barra de Progreso */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-display font-medium text-neutral-700">
-                          Progreso: {referidosInfo?.referidos_pendientes || referralCount}/3 Referidos
-                        </span>
-                        {referidosInfo?.tiene_recompensa_disponible && (
-                          <span className="text-sm font-display font-medium text-secondary-500 flex items-center">
-                            <Gift className="w-4 h-4 mr-1" />
-                            ¡Recompensa disponible!
-                          </span>
-                        )}
-                      </div>
-                      <div className="w-full bg-neutral-200 rounded-full h-3 overflow-hidden">
-                        <div 
-                          className="bg-secondary-500 h-full transition-all duration-300 rounded-full"
-                          style={{ width: `${Math.min(((referidosInfo?.referidos_pendientes || referralCount) / 3) * 100, 100)}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between mt-1">
-                        {[1, 2, 3].map((num) => (
-                          <div
-                            key={num}
-                            className={`w-2 h-2 rounded-full ${
-                              num <= (referidosInfo?.referidos_pendientes || referralCount) ? 'bg-secondary-500' : 'bg-neutral-300'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Código Único */}
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 mb-4">
-                      <label className="block text-xs font-display font-medium text-neutral-500 mb-2">
-                        Tu Código de Referido
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 bg-white border border-neutral-300 rounded px-3 py-2 text-lg font-mono font-bold text-neutral-700">
-                          {referidosInfo?.codigo_referido || (user?.username ? `TOMA_${user.username.toUpperCase()}` : 'TOMA_USER')}
-                        </code>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const code = referidosInfo?.codigo_referido || (user?.username ? `TOMA_${user.username.toUpperCase()}` : 'TOMA_USER');
-                            navigator.clipboard.writeText(code);
-                            setCodeCopied(true);
-                            toast.success('Código copiado al portapapeles');
-                            setTimeout(() => setCodeCopied(false), 2000);
-                          }}
-                          className="flex-shrink-0"
-                        >
-                          <Copy className={`w-4 h-4 ${codeCopied ? 'text-secondary-500' : ''}`} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const code = referidosInfo?.codigo_referido || (user?.username ? `TOMA_${user.username.toUpperCase()}` : 'TOMA_USER');
-                            const message = encodeURIComponent(
-                              `¡Sumate a "Dosis vital: Tu aplicación de hidratación personal" y controlá tu hidratación de manera científica! 🚰\n\nUsá mi código de referido: ${code}\n\nRegistrate aquí: ${window.location.origin}/register?ref=${code}`
-                            );
-                            window.open(`https://wa.me/?text=${message}`, '_blank');
-                          }}
-                          className="flex-shrink-0"
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Botón de Reclamar Recompensa */}
-                    {referidosInfo?.tiene_recompensa_disponible && (
-                      <Button
-                        variant="primary"
-                        className="w-full"
-                        onClick={() => setShowClaimRewardModal(true)}
-                        disabled={loadingReferidos}
-                      >
-                        <Gift className="w-4 h-4 mr-2" />
-                        Reclamar 1 Mes Premium Gratis
-                      </Button>
-                    )}
                   </div>
                 </Card>
 

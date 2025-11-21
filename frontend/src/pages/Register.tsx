@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 import { RegisterForm } from '@/types';
+import BrandLogo from '@/components/common/BrandLogo';
 
 declare global {
   interface Window {
@@ -204,15 +205,13 @@ const Register: React.FC = () => {
     <div className="min-h-screen bg-primary-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Logo and Title */}
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-secondary-500 rounded-full flex items-center justify-center mb-4 shadow-medium">
-            <Droplets className="h-8 w-8 text-white" />
-          </div>
-          <h2 className="text-3xl font-display font-bold text-neutral-700">
+        <div className="text-center flex flex-col items-center">
+          <BrandLogo size={109} className="mb-6" withText />
+          <h2 className="text-2xl font-display font-bold text-neutral-700 mt-4">
             Crear Cuenta
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
-            Únete a Dosis vital: Tu aplicación de hidratación personal y mejora tu hidratación
+            Únete a Dosis vital y mejora tu hidratación
           </p>
         </div>
 
@@ -425,7 +424,7 @@ const Register: React.FC = () => {
               <Input
                 label="Código de Referido (Opcional)"
                 type="text"
-                placeholder="TOMA_XXXXX"
+                placeholder="ABC12345"
                 {...register('codigo_referido')}
                 error={errors.codigo_referido?.message}
               />

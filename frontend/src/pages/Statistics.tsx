@@ -9,6 +9,7 @@ import { exportService } from '@/services/export';
 import { toast } from 'react-hot-toast';
 import { consumosService } from '@/services/consumos';
 import { Consumo } from '@/types';
+import PageHeader from '@/components/layout/PageHeader';
 
 const Statistics: React.FC = () => {
   const { user } = useAuthStore();
@@ -372,23 +373,11 @@ const Statistics: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-primary-50">
-      {/* Header */}
-      <div className="bg-white shadow-card border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-display font-bold text-neutral-700">
-                Estadísticas Detalladas
-              </h1>
-              <p className="text-neutral-600">
-                Analiza tus patrones de hidratación
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Estadísticas Detalladas"
+        subtitle="Analiza tus patrones de hidratación"
+        icon={<BarChart3 className="w-10 h-10" />}
+      />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">

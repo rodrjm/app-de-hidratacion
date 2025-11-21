@@ -11,7 +11,7 @@ import Card from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
 import { toast } from 'react-hot-toast';
 import { Actividad, ActividadForm, Consumo } from '@/types';
-import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import PageHeader from '@/components/layout/PageHeader';
 import DashboardRecentHistory from '@/components/dashboard/DashboardRecentHistory';
 import DashboardTips from '@/components/dashboard/DashboardTips';
 import DashboardPremiumCard from '@/components/dashboard/DashboardPremiumCard';
@@ -322,9 +322,10 @@ const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-primary-50">
       {/* Header */}
-      <DashboardHeader 
-        isLoading={isLoading} 
-        userName={user?.first_name || user?.username}
+      <PageHeader 
+        isLoading={isLoading}
+        title={`¡Hola${user?.first_name ? `, ${user.first_name}` : user?.username ? `, ${user.username}` : ''}! 👋`}
+        subtitle="Mantente hidratado durante todo el día"
       />
 
       {/* Main Content */}
@@ -417,7 +418,8 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Botones Flotantes de Acción */}
-      <div className="fixed bottom-24 right-4 z-40 flex flex-col gap-4">
+      {/* Posicionados por encima del anuncio: navegación (64px) + anuncio (50px) + espacio (16px) = 130px */}
+      <div className="fixed bottom-[130px] right-4 z-50 flex flex-col gap-4">
         <button
           onClick={handleOpenConsumoModal}
           className="w-16 h-16 rounded-full bg-secondary-500 hover:bg-secondary-600 text-white shadow-strong flex items-center justify-center transition-all duration-300 transform hover:scale-110 active:scale-95"
