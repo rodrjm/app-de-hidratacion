@@ -32,5 +32,5 @@ django-extensions==3.2.3
 gunicorn==21.2.0
 
 # Mercado Pago (para futura integración)
-mercadopago==2.0.0
+mercadopago==2.3.0
 
