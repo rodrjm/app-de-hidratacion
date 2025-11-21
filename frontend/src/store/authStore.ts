@@ -12,7 +12,7 @@ interface AuthState {
 }
 
 interface AuthActions {
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (userData: { email: string; first_name: string; last_name: string; password: string; confirmPassword: string; peso: number; peso_unidad: 'kg' | 'lb'; fecha_nacimiento: string; es_fragil_o_insuficiencia_cardiaca?: boolean }) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<{ is_new_user: boolean }>;
   logout: () => Promise<void>;
@@ -33,11 +33,11 @@ export const useAuthStore = create<AuthStore>()(
       error: null,
 
       // Acciones
-      login: async (email: string, password: string) => {
+      login: async (email: string, password: string, rememberMe: boolean = false) => {
         set({ isLoading: true, error: null });
         
         try {
-          const response = await authService.login({ email, password });
+          const response = await authService.login({ email, password, rememberMe });
           
           set({
             user: response.user,
@@ -201,7 +201,7 @@ export const useAuthInit = () => {
     const hasToken = authService.isAuthenticated();
     
     // Si no hay token, limpiar estado de autenticación
-    if (!hasToken && isAuthenticated) {
+    if (!hasToken) {
       useAuthStore.setState({
         user: null,
         isAuthenticated: false,
@@ -210,16 +210,16 @@ export const useAuthInit = () => {
       return;
     }
     
-    // Si hay token pero el store dice que no está autenticado, intentar refrescar
-    if (hasToken && !isAuthenticated) {
-      refreshUser();
-      return;
-    }
-    
-    // Si hay token y está autenticado, verificar que el usuario esté actualizado
-    if (hasToken && isAuthenticated) {
-      refreshUser();
-    }
+    // Si hay token, siempre intentar refrescar el usuario
+    // Esto asegura que el estado esté sincronizado después de un refresh
+    refreshUser().catch(() => {
+      // Si falla, limpiar estado
+      useAuthStore.setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false
+      });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Solo ejecutar una vez
+  }, []); // Solo ejecutar una vez al montar
 };
