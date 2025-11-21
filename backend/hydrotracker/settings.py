@@ -110,35 +110,43 @@ WSGI_APPLICATION = 'hydrotracker.wsgi.application'
 DATABASE_URL = config('DATABASE_URL', default=None)
 DB_HOST = config('DB_HOST', default=None)
 
-if DATABASE_URL:
+# Validar que DATABASE_URL no esté vacío y sea válido
+if DATABASE_URL and DATABASE_URL.strip():
     # MODO RENDER/HEROKU (usa DATABASE_URL)
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
-    }
-elif DB_HOST:
-    # MODO DOCKER/PRODUCCIÓN (PostgreSQL con variables individuales)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME'),
-            'USER': config('DB_USER'),
-            'PASSWORD': config('DB_PASSWORD'),
-            'HOST': DB_HOST,  # Será 'db' en Docker Compose
-            'PORT': config('DB_PORT', default='5432'),
+    try:
+        DATABASES = {
+            'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
         }
-    }
-else:
-    # MODO LOCAL (SQLite)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+    except (ValueError, Exception):
+        # Si DATABASE_URL es inválido, usar fallback
+        DATABASE_URL = None
+
+# Si DATABASE_URL no está disponible o es inválido, intentar DB_HOST
+if not DATABASE_URL or (isinstance(DATABASE_URL, str) and not DATABASE_URL.strip()):
+    if DB_HOST:
+        # MODO DOCKER/PRODUCCIÓN (PostgreSQL con variables individuales)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': config('DB_NAME'),
+                'USER': config('DB_USER'),
+                'PASSWORD': config('DB_PASSWORD'),
+                'HOST': DB_HOST,  # Será 'db' en Docker Compose
+                'PORT': config('DB_PORT', default='5432'),
+            }
         }
-    }
-    # Configuración adicional para SQLite
-    DATABASES['default']['OPTIONS'] = {
-        'timeout': 20,
-    }
+    else:
+        # MODO LOCAL (SQLite)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+        # Configuración adicional para SQLite
+        DATABASES['default']['OPTIONS'] = {
+            'timeout': 20,
+        }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

@@ -26,8 +26,15 @@ RUN mkdir -p logs
 # Exponer el puerto (Render usa la variable PORT)
 EXPOSE 8000
 
+# Script de inicio
+RUN echo '#!/bin/sh\n\
+set -e\n\
+python manage.py migrate --noinput\n\
+python manage.py collectstatic --noinput || true\n\
+PORT=${PORT:-8000}\n\
+exec gunicorn hydrotracker.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile -\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
 # Comando de inicio para producción
-# Render inyecta la variable PORT automáticamente
-# Ejecuta migraciones y luego inicia Gunicorn
-CMD sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput || true && exec gunicorn hydrotracker.wsgi:application --bind 0.0.0.0:$${PORT:-8000} --workers 2 --timeout 120 --access-logfile - --error-logfile -"
+CMD ["/app/start.sh"]
 
