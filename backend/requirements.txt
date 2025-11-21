@@ -4,6 +4,7 @@ djangorestframework==3.14.0
 
 # Database Drivers
 psycopg2-binary==2.9.9
+dj-database-url==2.1.0
 
 # Environment Variables
 python-decouple==3.8
