@@ -4,7 +4,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useRecordatoriosStore } from '@/store/recordatoriosStore';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
-import { RecordatorioForm } from '@/types';
+import { RecordatorioForm, Recordatorio } from '@/types';
 
 const diasSemanaLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 

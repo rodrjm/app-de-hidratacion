@@ -102,12 +102,10 @@ class ApiService {
     // Buscar token en ambos storages para asegurar que se encuentre
     // Primero verificar localStorage (para usuarios con "Recordarme")
     let token = localStorage.getItem('access_token');
-    let rememberMe = localStorage.getItem('rememberMe') === 'true';
     
     // Si no hay token en localStorage, buscar en sessionStorage
     if (!token) {
       token = sessionStorage.getItem('access_token');
-      rememberMe = false;
     }
     
     // Si encontramos un token en localStorage pero no hay preferencia de rememberMe,
@@ -216,7 +214,7 @@ class ApiService {
     const err = error as { response?: ResponseLike; request?: unknown };
     if (err.response) {
       // Error de respuesta del servidor
-      const data = err.response.data;
+      const data = err.response.data as Record<string, unknown> | undefined;
       // Intentar extraer mensajes de validación de DRF (dict de campos)
       if (err.response.status === 400 && data && typeof data === 'object' && !Array.isArray(data)) {
         const firstKey = Object.keys(data)[0];
@@ -228,7 +226,7 @@ class ApiService {
           return new Error(firstVal);
         }
       }
-      const message = data?.detail || data?.message || 'Error del servidor';
+      const message = (data && typeof data === 'object' && ('detail' in data ? String(data.detail) : 'message' in data ? String(data.message) : 'Error del servidor')) || 'Error del servidor';
       return new Error(message);
     } else if (err.request) {
       // Error de red

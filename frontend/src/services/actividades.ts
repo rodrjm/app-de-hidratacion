@@ -1,5 +1,5 @@
 import { apiService } from './api';
-import { Actividad, ActividadCreate } from '@/types';
+import { Actividad, ActividadForm } from '@/types';
 
 export const actividadesService = {
   /**
@@ -47,7 +47,7 @@ export const actividadesService = {
   /**
    * Crea una nueva actividad
    */
-  async createActividad(data: ActividadCreate): Promise<Actividad> {
+  async createActividad(data: ActividadForm): Promise<Actividad> {
     const response = await apiService.post<Actividad>('/actividades/', data);
     return response;
   },

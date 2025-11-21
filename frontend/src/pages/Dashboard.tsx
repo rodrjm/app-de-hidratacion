@@ -8,17 +8,17 @@ import HydrationProgress from '@/components/hydration/HydrationProgress';
 import AddConsumoModal from '@/components/hydration/AddConsumoModal';
 import AddActividadModal from '@/components/activities/AddActividadModal';
 import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
 import Skeleton from '@/components/ui/Skeleton';
 import { toast } from 'react-hot-toast';
-import { Actividad, ActividadForm, Consumo } from '@/types';
+import { Actividad, ActividadForm, Consumo, EstadisticasDiarias } from '@/types';
 import PageHeader from '@/components/layout/PageHeader';
 import DashboardRecentHistory from '@/components/dashboard/DashboardRecentHistory';
 import DashboardTips from '@/components/dashboard/DashboardTips';
 import DashboardPremiumCard from '@/components/dashboard/DashboardPremiumCard';
 
 const Dashboard: React.FC = () => {
-  const { user, isAuthenticated } = useAuthStore();
-  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [showAddConsumoModal, setShowAddConsumoModal] = useState(false);
   const [showAddActividadModal, setShowAddActividadModal] = useState(false);
   const [actividadEditar, setActividadEditar] = useState<{ id: number; data: ActividadForm } | undefined>(undefined);
@@ -93,7 +93,9 @@ const Dashboard: React.FC = () => {
   const isInitialMountRef = useRef<boolean>(true);
 
   // Memoizar estadísticas por defecto para evitar recrearlas en cada render
-  const estadisticasDefault = useMemo(() => ({
+  const estadisticasDefault: EstadisticasDiarias = useMemo(() => ({
+    fecha: new Date().toISOString().split('T')[0],
+    total_ml: 0,
     total_hidratacion_efectiva_ml: 0,
     meta_ml: 0,
     progreso_porcentaje: 0,

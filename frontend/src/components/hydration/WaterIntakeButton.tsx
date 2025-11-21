@@ -35,7 +35,7 @@ const WaterIntakeButton: React.FC<WaterIntakeButtonProps> = ({
         recipiente: containerId,
         cantidad_ml: amount,
         nivel_sed: 3,
-        estado_animo: 4
+        estado_animo: '4'
       });
 
       setIsSuccess(true);

@@ -304,7 +304,7 @@ export interface CardProps {
   subtitle?: string;
   className?: string;
   padding?: 'sm' | 'md' | 'lg';
-  shadow?: 'none' | 'soft' | 'medium' | 'strong';
+  shadow?: 'none' | 'soft' | 'medium' | 'strong' | 'card';
 }
 
 export interface ProgressBarProps {
@@ -312,7 +312,7 @@ export interface ProgressBarProps {
   max: number;
   label?: string;
   showPercentage?: boolean;
-  color?: 'primary' | 'success' | 'warning' | 'error';
+  color?: 'primary' | 'secondary' | 'accent' | 'chart' | 'success' | 'warning' | 'error';
   size?: 'sm' | 'md' | 'lg';
   animated?: boolean;
 }

@@ -10,8 +10,6 @@ const Premium: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [status, setStatus] = useState<{ is_premium: boolean; subscription_end_date?: string } | null>(null);
-  const [features, setFeatures] = useState<string[]>([]);
-  const [upgrade, setUpgrade] = useState<{ message: string; features: string[] } | null>(null);
   const [noAds, setNoAds] = useState<boolean>(false);
 
   useEffect(() => {
@@ -40,7 +38,8 @@ const Premium: React.FC = () => {
   }, []);
 
   const handleUpgrade = (planType: 'monthly' | 'annual' | 'lifetime') => {
-    toast.info(`Funcionalidad de upgrade pendiente de integrar con pasarela de pago. Plan seleccionado: ${planType}`, {
+    toast(`Funcionalidad de upgrade pendiente de integrar con pasarela de pago. Plan seleccionado: ${planType}`, {
+      icon: 'ℹ️',
       duration: 4000
     });
   };

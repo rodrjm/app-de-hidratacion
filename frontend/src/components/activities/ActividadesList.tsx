@@ -1,7 +1,6 @@
 import React from 'react';
 import { Actividad } from '@/types';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import { Edit, Trash2, Activity } from 'lucide-react';
 
 interface ActividadesListProps {

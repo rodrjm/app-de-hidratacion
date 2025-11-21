@@ -52,7 +52,7 @@ interface ConsumosActions {
   
   // Acciones de estadísticas
   fetchEstadisticas: (fecha?: string) => Promise<void>;
-  fetchTendencias: (period?: 'daily' | 'weekly' | 'monthly') => Promise<void>;
+  fetchTendencias: (period?: 'daily' | 'weekly' | 'monthly' | 'annual') => Promise<void>;
   fetchInsights: (days?: number) => Promise<void>;
   
   // Acciones de estado
@@ -237,7 +237,14 @@ export const useConsumosStore = create<ConsumosStore>((set, get) => ({
   },
 
   addRecipiente: async (recipiente) => {
-    const newRecipiente = await recipientesService.createRecipiente(recipiente);
+    const recipienteData: Omit<Recipiente, 'id' | 'usuario' | 'fecha_creacion'> = {
+      nombre: recipiente.nombre || '',
+      cantidad_ml: recipiente.cantidad_ml || 250,
+      color: recipiente.color,
+      icono: recipiente.icono,
+      es_favorito: recipiente.es_favorito || false
+    };
+    const newRecipiente = await recipientesService.createRecipiente(recipienteData);
     set(state => ({
       recipientes: [...state.recipientes, newRecipiente]
     }));

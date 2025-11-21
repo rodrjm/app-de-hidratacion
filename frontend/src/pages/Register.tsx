@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Eye, EyeOff, Droplets, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Check, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'react-hot-toast';
 import Button from '@/components/ui/Button';

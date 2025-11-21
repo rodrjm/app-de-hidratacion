@@ -14,7 +14,7 @@ interface OnboardingForm {
 }
 
 const Onboarding: React.FC = () => {
-  const { user, refreshUser } = useAuthStore();
+  const { refreshUser } = useAuthStore();
   const navigate = useNavigate();
 
   const {

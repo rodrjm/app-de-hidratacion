@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Droplets, Target, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import ProgressBar from '@/components/ui/ProgressBar';
 import Card from '@/components/ui/Card';
 import { EstadisticasDiarias } from '@/types';
@@ -63,10 +63,6 @@ const HydrationProgress: React.FC<HydrationProgressProps> = ({
     return "¡Vamos! Tu cuerpo necesita hidratación 💧";
   };
 
-  const getRemainingAmount = () => {
-    const remaining = meta_ml - total_hidratacion_efectiva_ml;
-    return Math.max(0, remaining);
-  };
 
   return (
     <Card className={`${className} ${isUpdating ? 'ring-2 ring-blue-400 ring-opacity-50' : ''} transition-all duration-500`} padding="lg">
