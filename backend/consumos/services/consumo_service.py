@@ -114,6 +114,8 @@ class ConsumoService:
         
         # Obtener meta del usuario recalculando con los datos actuales
         meta_ml = self.user.calcular_meta_hidratacion()
+        if not meta_ml or meta_ml <= 0:
+            meta_ml = self.user.meta_diaria_ml or 2000
         progreso_porcentaje = (total_hidratacion / meta_ml * 100) if meta_ml > 0 else 0
         
         return {
