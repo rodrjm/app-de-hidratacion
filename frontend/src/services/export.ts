@@ -69,10 +69,10 @@ class ExportService {
     const rows = data.consumos.map(consumo => [
       this.formatDate(consumo.fecha_hora),
       this.formatTime(consumo.fecha_hora),
-      consumo.bebida?.nombre || 'N/A',
+      (typeof consumo.bebida === 'object' ? consumo.bebida?.nombre : 'N/A') || 'N/A',
       consumo.cantidad_ml,
       consumo.cantidad_hidratacion_efectiva ?? 'N/A',
-      consumo.recipiente?.nombre || 'N/A',
+      (typeof consumo.recipiente === 'object' && consumo.recipiente ? consumo.recipiente?.nombre : 'N/A') || 'N/A',
       this.getNivelSedText(consumo.nivel_sed),
       this.getEstadoAnimoText(consumo.estado_animo),
       consumo.ubicacion || 'N/A',

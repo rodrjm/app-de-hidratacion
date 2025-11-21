@@ -95,7 +95,7 @@ const Statistics: React.FC = () => {
     // Pasar fecha local de hoy para evitar desfases por UTC en el backend
     const todayLocal = formatLocalDate(new Date());
     fetchEstadisticas(todayLocal);
-    fetchTendencias(selectedPeriod);
+    fetchTendencias(selectedPeriod as 'daily' | 'weekly' | 'monthly');
     if (user?.es_premium) {
       fetchInsights(30);
     }
@@ -132,7 +132,9 @@ const Statistics: React.FC = () => {
     setSelectedPeriod(period);
     // Limpiar datos del período anterior inmediatamente para evitar "flash" de datos antiguos
     setPeriodConsumos([]);
-    fetchTendencias(period);
+    if (period !== 'annual') {
+      fetchTendencias(period as 'daily' | 'weekly' | 'monthly');
+    }
   };
 
   const handleExportData = async () => {

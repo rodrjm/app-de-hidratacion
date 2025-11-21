@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { Plus, Edit2, Trash2, X, Crown } from 'lucide-react';
+import { Recipiente } from '@/types';
 
 interface RecipienteForm {
   nombre: string;

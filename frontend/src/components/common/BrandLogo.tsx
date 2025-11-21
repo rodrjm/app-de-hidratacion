@@ -13,9 +13,7 @@ interface BrandLogoProps {
 const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 56,
   className = '',
-  withText = false,
-  textSize = 'md',
-  orientation = 'vertical'
+  withText = false
 }) => {
   // Usar logo con texto o solo logo según la prop
   const logoSrc = withText ? LogoWithText : LogoOnly;

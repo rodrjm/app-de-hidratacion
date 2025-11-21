@@ -19,7 +19,7 @@ const Card: React.FC<CardProps> = ({
     lg: 'p-8'
   };
   
-  const shadowClasses = {
+  const shadowClasses: Record<string, string> = {
     none: '',
     soft: 'shadow-soft',
     medium: 'shadow-medium',
@@ -30,7 +30,7 @@ const Card: React.FC<CardProps> = ({
   const classes = clsx(
     baseClasses,
     paddingClasses[padding],
-    shadowClasses[shadow],
+    shadowClasses[shadow] || shadowClasses.card,
     className
   );
   

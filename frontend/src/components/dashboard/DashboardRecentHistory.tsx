@@ -214,9 +214,9 @@ const DashboardRecentHistory: React.FC<DashboardRecentHistoryProps> = memo(({
                     <span className="font-display font-bold text-secondary-600">{bebidaNombre}</span>
                     {': '}
                     {consumo.cantidad_ml}ml
-                    {consumo.cantidad_hidratacion_efectiva_ml && consumo.cantidad_hidratacion_efectiva_ml !== consumo.cantidad_ml && (
+                    {consumo.cantidad_hidratacion_efectiva && consumo.cantidad_hidratacion_efectiva !== consumo.cantidad_ml && (
                       <span className="font-display font-bold text-primary-600">
-                        {' '}({consumo.cantidad_hidratacion_efectiva_ml}ml efectivos)
+                        {' '}({consumo.cantidad_hidratacion_efectiva}ml efectivos)
                       </span>
                     )}
                   </p>

@@ -194,7 +194,7 @@ export const useAuthStore = create<AuthStore>()(
 
 // Hook para verificar autenticación al cargar la app
 export const useAuthInit = () => {
-  const { refreshUser, isAuthenticated } = useAuthStore();
+  const { refreshUser } = useAuthStore();
   
   useEffect(() => {
     // Verificar token primero antes de hacer cualquier cosa

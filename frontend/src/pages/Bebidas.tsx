@@ -16,7 +16,6 @@ const Bebidas: React.FC = () => {
   const navigate = useNavigate();
   const [showSugerirModal, setShowSugerirModal] = useState(false);
   const [bebidasPremiumPreview, setBebidasPremiumPreview] = useState<Bebida[]>([]);
-  const [isLoadingPremium, setIsLoadingPremium] = useState(false);
 
   useEffect(() => {
     if (user?.es_premium) {

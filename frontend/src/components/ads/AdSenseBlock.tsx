@@ -77,6 +77,7 @@ const AdSenseBlock: React.FC<AdSenseBlockProps> = ({
       }
 
       // Verificar que el contenedor tenga dimensiones válidas
+      if (!adRef.current) return;
       const containerRect = adRef.current.getBoundingClientRect();
       if (containerRect.width === 0 || containerRect.height === 0) {
         // Esperar un poco más si el contenedor aún no tiene dimensiones

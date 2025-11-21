@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { User, Save, Eye, EyeOff, Shield, LogOut, AlertTriangle, Bell, Crown, Package, CheckCircle2, Zap, Ban, Lock, CreditCard, Settings, Copy, Share2, Gift } from 'lucide-react';
+import { User, Save, Eye, EyeOff, Shield, LogOut, AlertTriangle, Bell, Crown, CheckCircle2, Zap, Ban, Lock, CreditCard, Settings, Copy, Share2, Gift } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'react-hot-toast';
 import Button from '@/components/ui/Button';
@@ -144,8 +144,13 @@ const Profile: React.FC = () => {
     toast.success('Perfil actualizado (demo)');
   };
 
-  const onSubmitPassword = async (_data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
-    toast.success('Contraseña cambiada (demo)');
+  const onSubmitPassword = async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+    try {
+      // TODO: Implementar cambio de contraseña cuando esté disponible en el backend
+      toast.success('Contraseña cambiada (demo)');
+    } catch (error) {
+      toast.error('Error al cambiar la contraseña');
+    }
   };
 
   const handleLogout = async () => {
@@ -319,7 +324,7 @@ const tabs = [
             {/* 2. Seguridad Tab */}
             {activeTab === 'security' && (
               <Card title="Seguridad" subtitle="Cambia tu contraseña">
-                <form onSubmit={handleSubmitPassword(onSubmitPassword)} className="space-y-6">
+                <form onSubmit={handleSubmitPassword((data) => onSubmitPassword(data as { currentPassword: string; newPassword: string; confirmPassword: string }))} className="space-y-6">
                   <Input
                     label="Contraseña actual"
                     type={showCurrentPassword ? 'text' : 'password'}
@@ -483,7 +488,7 @@ const tabs = [
                         <div className="flex items-center gap-2">
                           <h4 className="font-display font-medium text-neutral-700">Recordatorios de meta</h4>
                           {!user?.es_premium && (
-                            <Crown className="w-4 h-4 text-secondary-500" title="Exclusivo Premium" />
+                            <Crown className="w-4 h-4 text-secondary-500" />
                           )}
                         </div>
                         <p className="text-sm text-neutral-600">Notificaciones cuando estés cerca de tu meta</p>
@@ -666,7 +671,7 @@ const tabs = [
                             <Button
                               variant="outline"
                               onClick={() => {
-                                toast.info('Funcionalidad de editar plan próximamente disponible');
+                                toast('Funcionalidad de editar plan próximamente disponible', { icon: 'ℹ️' });
                               }}
                               className="flex-1"
                             >
