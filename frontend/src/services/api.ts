@@ -20,7 +20,29 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
 
 // Configuración base de la API
-const API_BASE_URL = import.meta.env?.VITE_API_URL ?? 'http://localhost:8000/api';
+// En producción, usar la URL del backend desplegado
+// En desarrollo, usar localhost
+const getApiBaseUrl = () => {
+  // En tiempo de ejecución, verificar si hay una variable global (inyectada por Nginx)
+  if (typeof window !== 'undefined' && (window as any).__API_URL__) {
+    return (window as any).__API_URL__;
+  }
+  // Usar la variable de entorno de Vite (reemplazada en build time)
+  const envUrl = import.meta.env?.VITE_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+  // Fallback: usar la URL de producción por defecto
+  // Esto evita que la app intente conectarse a localhost en producción
+  return 'https://dosis-vital.onrender.com/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Log para debugging (solo en desarrollo)
+if (import.meta.env.DEV) {
+  console.log('API Base URL:', API_BASE_URL);
+}
 
 class ApiService {
   private api: AxiosInstance;

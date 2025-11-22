@@ -14,6 +14,7 @@ RUN npm ci
 COPY . .
 
 # Variables de entorno para el build (se pueden sobrescribir)
+# Render puede pasar esta variable durante el build
 ARG VITE_API_URL=https://dosis-vital.onrender.com/api
 ENV VITE_API_URL=$VITE_API_URL
 
