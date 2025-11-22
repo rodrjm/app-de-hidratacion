@@ -212,8 +212,9 @@ export const useAuthInit = () => {
     
     // Si hay token, siempre intentar refrescar el usuario
     // Esto asegura que el estado esté sincronizado después de un refresh
-    refreshUser().catch(() => {
-      // Si falla, limpiar estado
+    refreshUser().catch((error) => {
+      // Si falla, limpiar estado y loggear el error (pero no romper la app)
+      console.error('Error al refrescar usuario:', error);
       useAuthStore.setState({
         user: null,
         isAuthenticated: false,
