@@ -33,15 +33,39 @@ RUN echo 'server { \
     server_name _; \
     root /usr/share/nginx/html; \
     index index.html; \
+    \
+    # Headers de seguridad y CORS \
+    add_header X-Frame-Options "SAMEORIGIN" always; \
+    add_header X-Content-Type-Options "nosniff" always; \
+    add_header X-XSS-Protection "1; mode=block" always; \
+    \
+    # Configuración para archivos estáticos \
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ { \
+        expires 1y; \
+        add_header Cache-Control "public, immutable"; \
+    } \
+    \
+    # Configuración para HTML (sin cache) \
+    location ~* \.html$ { \
+        add_header Cache-Control "no-cache, no-store, must-revalidate"; \
+        add_header Pragma "no-cache"; \
+        add_header Expires "0"; \
+    } \
+    \
+    # Configuración para SPA \
     location / { \
         try_files $uri $uri/ /index.html; \
+        add_header Cache-Control "no-cache, no-store, must-revalidate"; \
     } \
+    \
+    # Proxy para API \
     location /api { \
         proxy_pass https://dosis-vital.onrender.com; \
         proxy_set_header Host $host; \
         proxy_set_header X-Real-IP $remote_addr; \
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
         proxy_set_header X-Forwarded-Proto $scheme; \
+        proxy_set_header X-Forwarded-Host $host; \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
