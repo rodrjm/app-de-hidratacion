@@ -10,8 +10,6 @@ const Premium: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [status, setStatus] = useState<{ is_premium: boolean; subscription_end_date?: string } | null>(null);
-  const [features, setFeatures] = useState<string[]>([]);
-  const [upgrade, setUpgrade] = useState<{ message: string; features: string[] } | null>(null);
   const [noAds, setNoAds] = useState<boolean>(false);
 
   useEffect(() => {
@@ -19,15 +17,13 @@ const Premium: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        const [st, pf, up, na] = await Promise.all([
+        const [st, , , na] = await Promise.all([
           monetizationService.getSubscriptionStatus(),
           monetizationService.getPremiumFeatures(),
           monetizationService.getUpgradePrompt(),
           monetizationService.getNoAdsStatus()
         ]);
         setStatus(st);
-        setFeatures(pf.features || []);
-        setUpgrade(up);
         setNoAds(!!na.is_premium);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Error al cargar información de Premium';
