@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useEffect } from 'react';
-import { User, RegisterForm } from '@/types';
+import { User } from '@/types';
 import { authService } from '@/services/auth';
 
 interface AuthState {
@@ -13,7 +13,7 @@ interface AuthState {
 
 interface AuthActions {
   login: (username: string, password: string, rememberMe?: boolean) => Promise<void>;
-  register: (userData: { email: string; first_name: string; last_name: string; password: string; confirmPassword: string; peso: number; peso_unidad: 'kg' | 'lb'; fecha_nacimiento: string; es_fragil_o_insuficiencia_cardiaca?: boolean }) => Promise<void>;
+  register: (userData: { email: string; first_name: string; last_name: string; password: string; confirmPassword: string; peso: number; peso_unidad: 'kg' | 'lb'; fecha_nacimiento: string; es_fragil_o_insuficiencia_cardiaca?: boolean; codigo_referido?: string }) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<{ is_new_user: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -58,7 +58,7 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      register: async (userData) => {
+      register: async (userData: { email: string; first_name: string; last_name: string; password: string; confirmPassword: string; peso: number; peso_unidad: 'kg' | 'lb'; fecha_nacimiento: string; es_fragil_o_insuficiencia_cardiaca?: boolean; codigo_referido?: string }) => {
         set({ isLoading: true, error: null });
         
         try {
