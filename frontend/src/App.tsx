@@ -24,14 +24,20 @@ const Premium = lazy(() => import('@/pages/Premium'));
 const Bebidas = lazy(() => import('@/pages/Bebidas'));
 
 const App: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  console.log('App.tsx: Component rendering');
   
-  // Initialize auth state
-  useAuthInit();
+  try {
+    const { isAuthenticated, isLoading } = useAuthStore();
+    
+    console.log('App.tsx: Auth state:', { isAuthenticated, isLoading });
+    
+    // Initialize auth state
+    useAuthInit();
 
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
+    if (isLoading) {
+      console.log('App.tsx: Showing loading spinner');
+      return <LoadingSpinner />;
+    }
 
   return (
     <Router>
@@ -125,7 +131,26 @@ const App: React.FC = () => {
         />
       </div>
     </Router>
-  );
+    );
+  } catch (error) {
+    console.error('App.tsx: Error in component:', error);
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error en la aplicación</h1>
+          <p className="text-gray-600 mb-6">
+            Ocurrió un error al cargar la aplicación. Por favor, recarga la página.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+          >
+            Recargar página
+          </button>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default App;

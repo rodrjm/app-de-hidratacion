@@ -39,10 +39,8 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
-// Log para debugging (solo en desarrollo)
-if (import.meta.env.DEV) {
-  console.log('API Base URL:', API_BASE_URL);
-}
+// Log para debugging (siempre en producción para diagnosticar)
+console.log('API Service: Base URL configured as:', API_BASE_URL);
 
 class ApiService {
   private api: AxiosInstance;
