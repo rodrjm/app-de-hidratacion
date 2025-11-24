@@ -7,30 +7,30 @@ import './styles/globals.css'
 // Log para debugging
 console.log('Main.tsx: Starting app initialization');
 
-// Register service worker for PWA
-// Deshabilitar temporalmente el service worker para evitar problemas de cache
-// TODO: Rehabilitar después de resolver el problema de carga
-/*
+// Deshabilitar service worker para evitar problemas de cache
+// Desregistrar cualquier service worker existente
 if ('serviceWorker' in navigator) {
-  // Limpiar service workers antiguos primero
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
-      registration.unregister();
-      console.log('SW unregistered: ', registration);
+      registration.unregister().then((success) => {
+        if (success) {
+          console.log('SW unregistered successfully');
+        }
+      });
     }
   });
   
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered: ', registration);
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
+  // También intentar desregistrar por scope
+  navigator.serviceWorker.getRegistration().then((registration) => {
+    if (registration) {
+      registration.unregister().then((success) => {
+        if (success) {
+          console.log('SW unregistered by scope');
+        }
       });
+    }
   });
 }
-*/
 
 // Verificar que el elemento root existe
 const rootElement = document.getElementById('root');
