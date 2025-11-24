@@ -193,6 +193,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
 
+# Verificar si Redis está disponible (debe definirse antes de REST_FRAMEWORK)
+REDIS_URL = config('REDIS_URL', default=None)
+USE_REDIS = REDIS_URL and REDIS_URL.strip() and not REDIS_URL.startswith('dummy://')
+
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -212,18 +216,19 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Throttling: solo usar si Redis está disponible, de lo contrario deshabilitar
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
         'rest_framework.throttling.ScopedRateThrottle',
-    ],
+    ] if USE_REDIS else [],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '60/min',
         'user': '120/min',
         'login': '10/min',
         'export': '10/min',
         'export_premium': '60/min',
-    },
+    } if USE_REDIS else {},
 }
 
 # JWT Settings
@@ -427,48 +432,70 @@ SPECTACULAR_SETTINGS = {
     }
 }
 
-# Configuración de Caché Redis
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_KWARGS': {
-                'max_connections': 50,
-                'retry_on_timeout': True,
-            },
-            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
-            'SERIALIZER': 'django_redis.serializers.json.JSONSerializer',
-        },
-        'KEY_PREFIX': 'hydrotracker',
-        'TIMEOUT': 300,  # 5 minutos por defecto
-    },
-    'sessions': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/2'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        },
-        'KEY_PREFIX': 'hydrotracker_sessions',
-        'TIMEOUT': 86400,  # 24 horas
-    },
-    'api': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/3'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
-            'SERIALIZER': 'django_redis.serializers.json.JSONSerializer',
-        },
-        'KEY_PREFIX': 'hydrotracker_api',
-        'TIMEOUT': 600,  # 10 minutos
-    }
-}
+# Configuración de Caché Redis (opcional)
+# Si Redis no está disponible, usar cache en memoria (dummy)
+# NOTA: USE_REDIS ya está definido arriba antes de REST_FRAMEWORK
 
-# Configuración de sesiones con Redis
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_CACHE_ALIAS = 'sessions'
+if USE_REDIS:
+    # Usar Redis si está configurado
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL + '/1' if not REDIS_URL.endswith('/1') else REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 50,
+                    'retry_on_timeout': True,
+                },
+                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+                'SERIALIZER': 'django_redis.serializers.json.JSONSerializer',
+                'IGNORE_EXCEPTIONS': True,  # No fallar si Redis no está disponible
+            },
+            'KEY_PREFIX': 'hydrotracker',
+            'TIMEOUT': 300,  # 5 minutos por defecto
+        },
+        'sessions': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL + '/2' if not REDIS_URL.endswith('/2') else REDIS_URL.replace('/1', '/2'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'IGNORE_EXCEPTIONS': True,
+            },
+            'KEY_PREFIX': 'hydrotracker_sessions',
+            'TIMEOUT': 86400,  # 24 horas
+        },
+        'api': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL + '/3' if not REDIS_URL.endswith('/3') else REDIS_URL.replace('/1', '/3'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+                'SERIALIZER': 'django_redis.serializers.json.JSONSerializer',
+                'IGNORE_EXCEPTIONS': True,
+            },
+            'KEY_PREFIX': 'hydrotracker_api',
+            'TIMEOUT': 600,  # 10 minutos
+        }
+    }
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+    SESSION_CACHE_ALIAS = 'sessions'
+else:
+    # Usar cache en memoria (dummy) cuando Redis no está disponible
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        },
+        'sessions': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        },
+        'api': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
+    }
+    # Usar sesiones en base de datos cuando Redis no está disponible
+    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 SESSION_COOKIE_AGE = 86400  # 24 horas
 
 # Security Headers - Solo en producción (HTTPS requerido)
