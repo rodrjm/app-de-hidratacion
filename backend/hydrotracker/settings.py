@@ -262,7 +262,7 @@ SIMPLE_JWT = {
 # Incluir URLs de desarrollo y producción
 CORS_ALLOWED_ORIGINS_STR = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,https://dosis-vital.onrender.com'
+    default='http://localhost:3000,http://127.0.0.1:3000,https://dosis-vital.onrender.com,https://dosis-vital-ahxj.onrender.com'
 )
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
 

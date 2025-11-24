@@ -14,9 +14,12 @@ RUN npm ci
 COPY . .
 
 # Variables de entorno para el build (se pueden sobrescribir)
-# Render puede pasar esta variable durante el build
+# Render puede pasar estas variables durante el build
 ARG VITE_API_URL=https://dosis-vital.onrender.com/api
 ENV VITE_API_URL=$VITE_API_URL
+
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
 # Construir la aplicación
 RUN npm run build
