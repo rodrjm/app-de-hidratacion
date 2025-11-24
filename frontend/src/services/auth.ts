@@ -127,8 +127,8 @@ class AuthService {
       const registerResponse: RegisterResponse = {
         user: response.user,
         tokens: {
-          access: response.tokens?.access || response.access || '',
-          refresh: response.tokens?.refresh || response.refresh || ''
+          access: response.tokens.access,
+          refresh: response.tokens.refresh
         }
       };
       
