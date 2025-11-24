@@ -94,9 +94,13 @@ class RegisterView(generics.CreateAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f'Error inesperado al crear usuario: {e}', exc_info=True)
+            import traceback
+            error_traceback = traceback.format_exc()
+            logger.error(f'Traceback completo: {error_traceback}')
             return Response({
                 'error': 'Error al crear el usuario',
-                'detail': str(e) if settings.DEBUG else 'Error interno del servidor'
+                'detail': str(e) if settings.DEBUG else 'Error interno del servidor',
+                'traceback': error_traceback if settings.DEBUG else None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
