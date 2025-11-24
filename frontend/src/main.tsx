@@ -8,7 +8,18 @@ import './styles/globals.css'
 console.log('Main.tsx: Starting app initialization');
 
 // Register service worker for PWA
+// Deshabilitar temporalmente el service worker para evitar problemas de cache
+// TODO: Rehabilitar después de resolver el problema de carga
+/*
 if ('serviceWorker' in navigator) {
+  // Limpiar service workers antiguos primero
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+      console.log('SW unregistered: ', registration);
+    }
+  });
+  
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
@@ -19,6 +30,7 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+*/
 
 // Verificar que el elemento root existe
 const rootElement = document.getElementById('root');

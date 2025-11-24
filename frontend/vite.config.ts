@@ -80,9 +80,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Vendor chunks
+          // Vendor chunks - Asegurar que React se carga primero
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
+            // React debe estar en su propio chunk y cargarse primero
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react/jsx-runtime')) {
               return 'vendor-react';
             }
             if (id.includes('react-router')) {
@@ -112,7 +113,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Remove console.log in production
+        drop_console: false, // Keep console.log for debugging
         drop_debugger: true,
       },
     },
