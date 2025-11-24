@@ -6,6 +6,8 @@ import './styles/globals.css'
 
 // Log para debugging
 console.log('Main.tsx: Starting app initialization');
+console.log('React version:', React.version);
+console.log('ReactDOM available:', typeof ReactDOM !== 'undefined');
 
 // Deshabilitar service worker para evitar problemas de cache
 // Desregistrar cualquier service worker existente
@@ -41,6 +43,13 @@ if (!rootElement) {
 
 try {
   console.log('Main.tsx: Creating React root');
+  console.log('React:', React);
+  console.log('ReactDOM:', ReactDOM);
+  
+  if (!React || !ReactDOM) {
+    throw new Error('React or ReactDOM is not available');
+  }
+  
   const root = ReactDOM.createRoot(rootElement);
   
   console.log('Main.tsx: Rendering app');
