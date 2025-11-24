@@ -123,12 +123,12 @@ class AuthService {
       type RegisterBackendResponse = { user: User; tokens: { access: string; refresh: string } };
       const response = await apiService.post<RegisterBackendResponse>('/register/', userData);
       
-      // El backend devuelve access y refresh directamente, no dentro de tokens
+      // El backend devuelve access y refresh dentro de tokens
       const registerResponse: RegisterResponse = {
         user: response.user,
         tokens: {
-          access: response.tokens.access,
-          refresh: response.tokens.refresh
+          access: response.tokens?.access || response.access || '',
+          refresh: response.tokens?.refresh || response.refresh || ''
         }
       };
       
@@ -341,9 +341,24 @@ class AuthService {
           access: response.access,
           refresh: response.refresh
         },
-        is_new_user: response.is_new_user
+        is_new_user: response.is_new_user || false
       };
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: unknown } };
+      
+      // Manejar errores específicos
+      if (err.response?.status === 404) {
+        throw new Error('Endpoint de autenticación con Google no encontrado. Por favor, contacta al administrador.');
+      } else if (err.response?.status === 400) {
+        const errorData = err.response.data as Record<string, unknown> | undefined;
+        if (errorData && 'error' in errorData) {
+          throw new Error(String(errorData.error));
+        }
+        throw new Error('Credencial de Google inválida');
+      } else if (err.response?.status === 500) {
+        throw new Error('Error del servidor al autenticar con Google');
+      }
+      
       const errorMessage = error instanceof Error ? error.message : 'Error al autenticar con Google';
       throw new Error(errorMessage);
     }
