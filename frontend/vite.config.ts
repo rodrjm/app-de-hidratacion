@@ -80,32 +80,33 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Vendor chunks - Asegurar que React se carga primero
-          if (id.includes('node_modules')) {
-            // React debe estar en su propio chunk y cargarse primero
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react/jsx-runtime')) {
-              return 'vendor-react';
-            }
-            if (id.includes('react-router')) {
-              return 'vendor-router';
-            }
-            if (id.includes('zustand')) {
-              return 'vendor-state';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-            if (id.includes('recharts')) {
-              return 'vendor-charts';
-            }
-            if (id.includes('react-hot-toast')) {
-              return 'vendor-toast';
-            }
-            // Other node_modules
-            return 'vendor';
-          }
-        }
+        manualChunks: undefined, // Deshabilitar manual chunks para evitar problemas de orden de carga
+        // manualChunks: (id) => {
+        //   // Vendor chunks - Asegurar que React se carga primero
+        //   if (id.includes('node_modules')) {
+        //     // React debe estar en su propio chunk y cargarse primero
+        //     if (id.includes('react') || id.includes('react-dom') || id.includes('react/jsx-runtime')) {
+        //       return 'vendor-react';
+        //     }
+        //     if (id.includes('react-router')) {
+        //       return 'vendor-router';
+        //     }
+        //     if (id.includes('zustand')) {
+        //       return 'vendor-state';
+        //     }
+        //     if (id.includes('lucide-react')) {
+        //       return 'vendor-icons';
+        //     }
+        //     if (id.includes('recharts')) {
+        //       return 'vendor-charts';
+        //     }
+        //     if (id.includes('react-hot-toast')) {
+        //       return 'vendor-toast';
+        //     }
+        //     // Other node_modules
+        //     return 'vendor';
+        //   }
+        // }
       }
     },
     // Optimize chunk size
