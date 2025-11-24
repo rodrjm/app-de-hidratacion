@@ -327,7 +327,7 @@ class AuthService {
         refresh: string;
         is_new_user: boolean;
       };
-      const response = await apiService.post<GoogleAuthResponse>('/users/google-auth/', {
+      const response = await apiService.post<GoogleAuthResponse>('/google-auth/', {
         credential
       });
       
