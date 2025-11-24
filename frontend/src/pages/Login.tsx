@@ -21,6 +21,7 @@ declare global {
             client_id: string;
             callback: (response: { access_token: string }) => void;
             scope?: string;
+            error_callback?: (error: { type?: string; message?: string }) => void;
           }) => {
             requestAccessToken: () => void;
           };
@@ -81,7 +82,8 @@ const Login: React.FC = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
     if (!clientId) {
-      toast.error('Google Client ID no configurado');
+      toast.error('Google Client ID no configurado. Por favor, contacta al administrador.');
+      console.error('VITE_GOOGLE_CLIENT_ID no está configurado');
       return;
     }
 
@@ -98,6 +100,11 @@ const Login: React.FC = () => {
                 Authorization: `Bearer ${response.access_token}`
               }
             });
+            
+            if (!userInfoResponse.ok) {
+              throw new Error('Error al obtener información del usuario de Google');
+            }
+            
             const userInfo = await userInfoResponse.json();
 
             // Enviar credencial a nuestro backend
@@ -122,14 +129,30 @@ const Login: React.FC = () => {
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error al autenticar con Google';
             toast.error(errorMessage);
+            console.error('Error en autenticación con Google:', error);
             setIsGoogleLoading(false);
           }
         },
-        scope: 'email profile'
+        scope: 'email profile',
+        error_callback: (error) => {
+          console.error('Error de Google OAuth:', error);
+          setIsGoogleLoading(false);
+          
+          if (error.type === 'popup_closed') {
+            toast.error('Ventana de autenticación cerrada');
+          } else if (error.type === 'popup_blocked') {
+            toast.error('El popup fue bloqueado. Por favor, permite popups para este sitio.');
+          } else if (error.message?.includes('redirect_uri_mismatch')) {
+            toast.error('Error de configuración de Google OAuth. Por favor, contacta al administrador.');
+          } else {
+            toast.error(`Error de autenticación: ${error.message || 'Error desconocido'}`);
+          }
+        }
       });
 
       tokenClient.requestAccessToken();
     } catch (error) {
+      console.error('Error al iniciar autenticación con Google:', error);
       toast.error('Error al iniciar autenticación con Google');
     }
   };
