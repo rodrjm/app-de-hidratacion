@@ -1,6 +1,5 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
 import { Droplets } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'react-hot-toast';
@@ -15,7 +14,6 @@ interface OnboardingForm {
 
 const Onboarding: React.FC = () => {
   const { refreshUser } = useAuthStore();
-  const navigate = useNavigate();
 
   const {
     register,
