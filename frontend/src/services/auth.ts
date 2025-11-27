@@ -200,7 +200,7 @@ class AuthService {
    */
   async getCurrentUser(): Promise<User> {
     try {
-      const response = await apiService.get<User>('/profile/');
+      const response = await apiService.get<User>('/users/profile/');
       return response;
     } catch (error) {
       throw new Error('Error al obtener datos del usuario');
@@ -212,7 +212,7 @@ class AuthService {
    */
   async updateProfile(userData: Partial<User>): Promise<User> {
     try {
-      const response = await apiService.put<User>('/profile/', userData);
+      const response = await apiService.put<User>('/users/profile/', userData);
       return response;
     } catch (error) {
       throw new Error('Error al actualizar el perfil');

@@ -33,7 +33,7 @@ def root_view(request):
 urlpatterns = [
     path('', root_view, name='root'),
     path('admin/', admin.site.urls),
-    path('api/', include('users.urls')),
+    path('api/users/', include('users.urls')),
     path('api/', include('consumos.urls')),
     path('api/', include('actividades.urls')),
     path('api/health/', health_check, name='health_check'),
