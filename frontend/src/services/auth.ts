@@ -347,7 +347,14 @@ class AuthService {
       const err = error as { response?: { status?: number; data?: unknown } };
       
       // Manejar errores específicos
-      if (err.response?.status === 404) {
+      if (err.response?.status === 401) {
+        // 401 en Google Auth puede significar que el token de Google es inválido o que hay un problema de autenticación
+        const errorData = err.response.data as Record<string, unknown> | undefined;
+        if (errorData && 'error' in errorData) {
+          throw new Error(String(errorData.error));
+        }
+        throw new Error('Error de autenticación con Google. Intenta nuevamente.');
+      } else if (err.response?.status === 404) {
         throw new Error('Endpoint de autenticación con Google no encontrado. Por favor, contacta al administrador.');
       } else if (err.response?.status === 400) {
         const errorData = err.response.data as Record<string, unknown> | undefined;

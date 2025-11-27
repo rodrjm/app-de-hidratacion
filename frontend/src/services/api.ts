@@ -60,10 +60,23 @@ class ApiService {
   }
 
   private setupInterceptors() {
+    // Endpoints públicos que no requieren autenticación
+    const publicEndpoints = [
+      '/users/login/',
+      '/users/register/',
+      '/users/google-auth/',
+      '/users/token/refresh/',
+    ];
+    
     // Interceptor de request
     this.api.interceptors.request.use(
       (config) => {
-        if (this.token) {
+        // Solo agregar token si no es un endpoint público
+        const isPublicEndpoint = publicEndpoints.some(endpoint => 
+          config.url?.includes(endpoint)
+        );
+        
+        if (this.token && !isPublicEndpoint) {
           config.headers.Authorization = `Bearer ${this.token}`;
         }
         return config;
