@@ -61,7 +61,7 @@ class AuthService {
     try {
       const { rememberMe, ...loginData } = credentials;
       type LoginBackendResponse = { user: User; access: string; refresh: string };
-      const response = await apiService.post<LoginBackendResponse>('/login/', loginData);
+      const response = await apiService.post<LoginBackendResponse>('/users/login/', loginData);
       
       // El backend devuelve access y refresh directamente, no dentro de tokens
       const loginResponse: LoginResponse = {
@@ -121,7 +121,7 @@ class AuthService {
   async register(userData: RegisterForm): Promise<RegisterResponse> {
     try {
       type RegisterBackendResponse = { user: User; tokens: { access: string; refresh: string } };
-      const response = await apiService.post<RegisterBackendResponse>('/register/', userData);
+      const response = await apiService.post<RegisterBackendResponse>('/users/register/', userData);
       
       // El backend devuelve access y refresh dentro de tokens
       const registerResponse: RegisterResponse = {
@@ -157,7 +157,7 @@ class AuthService {
       const refreshToken = storage.getItem('refresh_token') || sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
       
       if (refreshToken) {
-        await apiService.post('/logout/', { refresh_token: refreshToken });
+        await apiService.post('/users/logout/', { refresh_token: refreshToken });
       }
     } catch (error) {
       // Continuar con el logout aunque falle la petición
@@ -182,7 +182,7 @@ class AuthService {
         throw new Error('No hay token de renovación');
       }
 
-      const response = await apiService.post<{ access: string }>('/token/refresh/', {
+      const response = await apiService.post<{ access: string }>('/users/token/refresh/', {
         refresh: refreshToken
       });
 
@@ -327,7 +327,7 @@ class AuthService {
         refresh: string;
         is_new_user: boolean;
       };
-      const response = await apiService.post<GoogleAuthResponse>('/google-auth/', {
+      const response = await apiService.post<GoogleAuthResponse>('/users/google-auth/', {
         credential
       });
       

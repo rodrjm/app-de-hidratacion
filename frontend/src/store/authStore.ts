@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { useEffect } from 'react';
 import { User } from '@/types';
 import { authService } from '@/services/auth';
+import { apiService } from '@/services/api';
 
 interface AuthState {
   user: User | null;
@@ -213,8 +214,16 @@ export const useAuthInit = () => {
     // Si hay token, siempre intentar refrescar el usuario
     // Esto asegura que el estado esté sincronizado después de un refresh
     refreshUser().catch((error) => {
-      // Si falla, limpiar estado y loggear el error (pero no romper la app)
-      console.error('Error al refrescar usuario:', error);
+      // Si falla (401 = token inválido/expirado, o cualquier otro error), 
+      // limpiar estado silenciosamente sin mostrar errores al usuario
+      // Solo loggear en desarrollo para debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error al refrescar usuario (token inválido o expirado):', error);
+      }
+      // Limpiar tokens inválidos localmente (sin llamar al servidor)
+      apiService.clearToken();
+      sessionStorage.removeItem('refresh_token');
+      localStorage.removeItem('refresh_token');
       useAuthStore.setState({
         user: null,
         isAuthenticated: false,
