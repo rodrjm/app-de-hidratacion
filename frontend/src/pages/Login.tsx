@@ -37,6 +37,11 @@ const Login: React.FC = () => {
   const { login, isLoading, error, clearError, loginWithGoogle } = useAuthStore();
   const navigate = useNavigate();
 
+  // Limpiar errores al montar el componente (evitar mostrar errores de sesiones anteriores)
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
   const {
     register,
     handleSubmit,

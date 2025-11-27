@@ -166,11 +166,15 @@ export const useAuthStore = create<AuthStore>()(
             error: null
           });
         } catch (error) {
+          // No establecer error para 401 (token inválido/expirado) - es esperado cuando no hay sesión válida
+          const err = error as { response?: { status?: number } };
+          const isUnauthorized = err.response?.status === 401;
+          
           set({
             user: null,
             isAuthenticated: false,
             isLoading: false,
-            error: 'Error al obtener datos del usuario'
+            error: isUnauthorized ? null : 'Error al obtener datos del usuario'
           });
         }
       },
