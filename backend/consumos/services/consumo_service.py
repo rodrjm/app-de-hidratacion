@@ -112,10 +112,28 @@ class ConsumoService:
         total_hidratacion = stats['total_hidratacion'] or 0
         cantidad_consumos = stats['cantidad_consumos'] or 0
         
-        # Obtener meta del usuario recalculando con los datos actuales
-        meta_ml = self.user.calcular_meta_hidratacion()
-        if not meta_ml or meta_ml <= 0:
-            meta_ml = self.user.meta_diaria_ml or 2000
+        # Obtener meta del usuario incluyendo actividades del día (PSE)
+        # Calcular meta base
+        meta_base = self.user.calcular_meta_hidratacion()
+        if not meta_base or meta_base <= 0:
+            meta_base = self.user.meta_diaria_ml or 2000
+        
+        # Sumar PSE de actividades del día
+        from actividades.models import Actividad
+        from datetime import time as dt_time
+        inicio_dia_local = datetime(fecha.year, fecha.month, fecha.day, 0, 0, 0, 0, tzinfo=tzinfo)
+        fin_dia_local = datetime(fecha.year, fecha.month, fecha.day, 23, 59, 59, 999000, tzinfo=tzinfo)
+        inicio_dia_utc = inicio_dia_local.astimezone(dt_timezone.utc)
+        fin_dia_utc = fin_dia_local.astimezone(dt_timezone.utc)
+        
+        actividades_dia = Actividad.objects.filter(
+            usuario=self.user,
+            fecha_hora__range=[inicio_dia_utc, fin_dia_utc]
+        )
+        pse_total = sum(actividad.pse_calculado for actividad in actividades_dia)
+        
+        # Meta final = meta base + PSE total
+        meta_ml = meta_base + pse_total
         progreso_porcentaje = (total_hidratacion / meta_ml * 100) if meta_ml > 0 else 0
         
         return {

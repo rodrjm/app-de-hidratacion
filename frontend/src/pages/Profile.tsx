@@ -273,24 +273,35 @@ const tabs = [
                     </div>
                   </div>
 
-                  {/* Correo electrónico y Fecha de nacimiento - Solo lectura */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-display font-medium text-neutral-700 mb-2">
-                        Correo electrónico
-                      </label>
-                      <div className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-md text-neutral-700">
-                        {user?.email || '-'}
-                      </div>
+                  {/* Correo electrónico - Solo lectura */}
+                  <div>
+                    <label className="block text-sm font-display font-medium text-neutral-700 mb-2">
+                      Correo electrónico
+                    </label>
+                    <div className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-md text-neutral-700">
+                      {user?.email || '-'}
                     </div>
-                    <div>
-                      <label className="block text-sm font-display font-medium text-neutral-700 mb-2">
-                        Fecha de nacimiento
-                      </label>
-                      <div className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-md text-neutral-700">
-                        {user?.fecha_nacimiento ? new Date(user.fecha_nacimiento).toLocaleDateString('es-ES') : '-'}
-                      </div>
-                    </div>
+                  </div>
+
+                  {/* Fecha de nacimiento - Editable */}
+                  <div>
+                    <Input
+                      label="Fecha de nacimiento"
+                      type="date"
+                      {...registerProfile('fecha_nacimiento', {
+                        required: 'La fecha de nacimiento es requerida',
+                        validate: (value) => {
+                          if (!value) return 'La fecha de nacimiento es requerida';
+                          const fechaNac = new Date(value);
+                          const hoy = new Date();
+                          if (fechaNac >= hoy) return 'La fecha de nacimiento debe ser anterior a hoy';
+                          const edad = hoy.getFullYear() - fechaNac.getFullYear();
+                          if (edad > 120) return 'La fecha de nacimiento no puede ser anterior a 120 años';
+                          return true;
+                        }
+                      })}
+                      error={profileErrors.fecha_nacimiento?.message}
+                    />
                   </div>
 
                   {/* Peso - Editable */}
