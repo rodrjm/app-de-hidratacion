@@ -31,9 +31,8 @@ class BebidaViewSet(BaseViewSet, StatsMixin, FilterMixin):
         """
         return self.queryset.filter(activa=True)
 
-    @method_decorator(cache_page(300))
     def list(self, request, *args, **kwargs):
         """
-        Lista de bebidas cacheada por 5 minutos (contenido global, no por usuario).
+        Lista de bebidas (cache deshabilitado temporalmente para evitar errores con Redis).
         """
         return super().list(request, *args, **kwargs)
