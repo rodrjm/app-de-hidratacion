@@ -217,6 +217,8 @@ const Dashboard: React.FC = () => {
 
   const handleAddConsumo = useCallback(async (data: { bebida: number; recipiente: number | null; cantidad_ml: number }) => {
     try {
+      // Forzar recarga de datos después de agregar/actualizar consumo
+      hasLoadedInitialDataRef.current = false;
       // Obtener la fecha/hora actual en la zona horaria local del usuario
       const ahora = new Date();
       const fechaHora = ahora.toISOString();
@@ -268,6 +270,8 @@ const Dashboard: React.FC = () => {
   const handleDeleteConsumo = useCallback(async (id: number) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este consumo?')) {
       try {
+        // Forzar recarga de datos después de eliminar consumo
+        hasLoadedInitialDataRef.current = false;
         await deleteConsumo(id);
         toast.success('Consumo eliminado exitosamente');
         // Refrescar la lista de consumos del día

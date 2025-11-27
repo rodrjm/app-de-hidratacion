@@ -34,7 +34,9 @@ const Onboarding: React.FC = () => {
       await refreshUser();
 
       toast.success('¡Configuración completada! 🎉');
-      navigate('/dashboard');
+      
+      // Usar window.location para forzar una navegación completa y evitar problemas de redirección
+      window.location.href = '/dashboard';
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error al guardar los datos';
       toast.error(errorMessage);
