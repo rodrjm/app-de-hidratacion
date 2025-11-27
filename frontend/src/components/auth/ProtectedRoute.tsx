@@ -39,7 +39,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   // Verificar si el usuario tiene valores temporales (peso=70.0 indica usuario de Google sin onboarding)
   // y redirigir a onboarding si no está ya en esa ruta
-  if (user && user.peso === 70.0 && location.pathname !== '/onboarding') {
+  // EXCEPTO si está en el proceso de onboarding (para evitar redirecciones infinitas)
+  if (user && user.peso === 70.0 && location.pathname !== '/onboarding' && !location.pathname.includes('/onboarding')) {
     // Calcular edad aproximada desde fecha_nacimiento para verificar si es temporal
     if (user.fecha_nacimiento) {
       const fechaNac = new Date(user.fecha_nacimiento);

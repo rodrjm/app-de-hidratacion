@@ -205,7 +205,7 @@ export const useAuthInit = () => {
     // Verificar token primero antes de hacer cualquier cosa
     const hasToken = authService.isAuthenticated();
     
-    // Si no hay token, limpiar estado de autenticación
+    // Si no hay token, limpiar estado de autenticación y NO intentar refrescar
     if (!hasToken) {
       useAuthStore.setState({
         user: null,
@@ -215,7 +215,7 @@ export const useAuthInit = () => {
       return;
     }
     
-    // Si hay token, siempre intentar refrescar el usuario
+    // Solo intentar refrescar si hay token válido
     // Esto asegura que el estado esté sincronizado después de un refresh
     refreshUser().catch((error) => {
       // Si falla (401 = token inválido/expirado, o cualquier otro error), 
