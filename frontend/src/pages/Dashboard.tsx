@@ -22,6 +22,14 @@ const Dashboard: React.FC = () => {
   const [showAddActividadModal, setShowAddActividadModal] = useState(false);
   const [actividadEditar, setActividadEditar] = useState<{ id: number; data: ActividadForm } | undefined>(undefined);
   const [consumoEditar, setConsumoEditar] = useState<{ id: number; bebida: number; recipiente: number | null; cantidad_ml: number } | undefined>(undefined);
+
+  // Utilidad: formatear fecha local YYYY-MM-DD (sin convertir a UTC)
+  const formatLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   const {
     estadisticas,
     bebidas,
@@ -74,10 +82,12 @@ const Dashboard: React.FC = () => {
     }
     
     console.log('Dashboard: Loading initial data...');
-    fetchEstadisticas(); // usa daily_summary
+    // Usar fecha local para evitar problemas de zona horaria
+    const todayLocal = formatLocalDate(new Date());
+    fetchEstadisticas(todayLocal); // Pasar fecha local
     fetchBebidas();
     fetchRecipientes();
-    fetchConsumos(1, { fecha_inicio: new Date().toISOString().slice(0,10), fecha_fin: new Date().toISOString().slice(0,10) });
+    fetchConsumos(1, { fecha_inicio: todayLocal, fecha_fin: todayLocal });
     fetchActividadesHoy();
     
     // Marcar como cargado
@@ -180,7 +190,8 @@ const Dashboard: React.FC = () => {
       }
       // Refrescar actividades del día
       await fetchActividadesHoy();
-      await fetchEstadisticas(); // Actualizar estadísticas para reflejar nueva meta
+      const hoy = formatLocalDate(new Date());
+      await fetchEstadisticas(hoy); // Actualizar estadísticas con fecha local para reflejar nueva meta
       setShowAddActividadModal(false);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error al registrar actividad';
@@ -244,9 +255,9 @@ const Dashboard: React.FC = () => {
         toast.success('¡Consumo registrado exitosamente! 💧');
       }
       // Refrescar la lista de consumos del día para obtener los datos completos (bebida_nombre, hora_formateada)
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = formatLocalDate(new Date());
       await fetchConsumos(1, { fecha_inicio: hoy, fecha_fin: hoy });
-      await fetchEstadisticas(); // Actualizar estadísticas
+      await fetchEstadisticas(hoy); // Actualizar estadísticas con fecha local
       setShowAddConsumoModal(false);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Error al registrar el consumo';
@@ -275,9 +286,9 @@ const Dashboard: React.FC = () => {
         await deleteConsumo(id);
         toast.success('Consumo eliminado exitosamente');
         // Refrescar la lista de consumos del día
-        const hoy = new Date().toISOString().slice(0, 10);
+        const hoy = formatLocalDate(new Date());
         await fetchConsumos(1, { fecha_inicio: hoy, fecha_fin: hoy });
-        await fetchEstadisticas(); // Actualizar estadísticas
+        await fetchEstadisticas(hoy); // Actualizar estadísticas con fecha local
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error al eliminar consumo';
         toast.error(errorMessage);
