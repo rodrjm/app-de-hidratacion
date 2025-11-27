@@ -10,6 +10,7 @@ import { apiService } from '@/services/api';
 
 interface OnboardingForm {
   peso: number;
+  fecha_nacimiento: string;
 }
 
 const Onboarding: React.FC = () => {
@@ -23,9 +24,10 @@ const Onboarding: React.FC = () => {
 
   const onSubmit = async (data: OnboardingForm) => {
     try {
-      // Actualizar el perfil del usuario con el peso
+      // Actualizar el perfil del usuario con el peso y fecha de nacimiento
       await apiService.patch('/users/profile/', {
-        peso: data.peso
+        peso: data.peso,
+        fecha_nacimiento: data.fecha_nacimiento
       });
 
       // Recargar datos del usuario para obtener la meta calculada
@@ -53,7 +55,7 @@ const Onboarding: React.FC = () => {
             ¡Casi listo, che!
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
-            Para calcular tu meta de hidratación personalizada, necesitamos conocer tu peso.
+            Para calcular tu meta de hidratación personalizada, necesitamos conocer tu peso y fecha de nacimiento.
           </p>
         </div>
 
@@ -77,6 +79,29 @@ const Onboarding: React.FC = () => {
               />
               <p className="mt-1 text-xs text-neutral-500">
                 Se usará para calcular tu meta de hidratación diaria personalizada
+              </p>
+            </div>
+
+            <div>
+              <Input
+                label="Fecha de Nacimiento"
+                type="date"
+                {...register('fecha_nacimiento', {
+                  required: 'La fecha de nacimiento es obligatoria',
+                  validate: (value) => {
+                    if (!value) return 'La fecha de nacimiento es obligatoria';
+                    const fechaNac = new Date(value);
+                    const hoy = new Date();
+                    if (fechaNac >= hoy) return 'La fecha de nacimiento debe ser anterior a hoy';
+                    const edad = hoy.getFullYear() - fechaNac.getFullYear();
+                    if (edad > 120) return 'La fecha de nacimiento no puede ser anterior a 120 años';
+                    return true;
+                  }
+                })}
+                error={errors.fecha_nacimiento?.message}
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Necesaria para calcular tu meta de hidratación según tu edad
               </p>
             </div>
 
