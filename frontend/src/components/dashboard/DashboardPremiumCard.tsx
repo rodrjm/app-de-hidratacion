@@ -15,7 +15,7 @@ const DashboardPremiumCard: React.FC<DashboardPremiumCardProps> = memo(({ isPrem
   }
 
   const handleUpgrade = () => {
-    navigate('/profile');
+    navigate('/premium');
   };
 
   return (

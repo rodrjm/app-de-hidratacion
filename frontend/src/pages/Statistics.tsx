@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, TrendingUp, BarChart3, PieChart, Download, Lock, ArrowUp, ArrowDown, Clock, Droplets } from 'lucide-react';
 import { useConsumosStore } from '@/store/consumosStore';
 import { useAuthStore } from '@/store/authStore';
@@ -12,6 +13,7 @@ import { Consumo } from '@/types';
 import PageHeader from '@/components/layout/PageHeader';
 
 const Statistics: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
     estadisticas,
@@ -650,6 +652,16 @@ const Statistics: React.FC = () => {
               <div className="flex items-center justify-between">
                 <p className="text-neutral-700">Desbloquea tu potencial: Gráficos semanales y anuales con Dosis vital: Tu aplicación de hidratación personal Premium.</p>
                 <Button variant="secondary" disabled title="Disponible en Premium">Exportar</Button>
+              </div>
+              <div className="pt-4 border-t border-neutral-200">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => navigate('/premium')}
+                >
+                  Ver planes Premium
+                </Button>
               </div>
             </div>
           </Card>
