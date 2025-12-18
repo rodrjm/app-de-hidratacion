@@ -118,6 +118,18 @@ class MonetizationService {
   async getConsumptionInsights(days: number = 30): Promise<Record<string, unknown>> {
     return await apiService.get<Record<string, unknown>>(`/premium/stats/insights/?days=${days}`);
   }
+
+  /**
+   * Crear sesión de checkout para suscripción premium
+   * @param planType Tipo de plan: 'monthly', 'annual', o 'lifetime'
+   * @returns URL de redirección al checkout de Mercado Pago
+   */
+  async createCheckoutSession(planType: 'monthly' | 'annual' | 'lifetime'): Promise<string> {
+    const response = await apiService.post<{ init_point: string }>('/premium/subscribe/', {
+      planType
+    });
+    return response.init_point;
+  }
 }
 
 // Instancia singleton del servicio de monetización

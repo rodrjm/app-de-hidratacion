@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/users/', include('users.urls')),
     path('api/', include('consumos.urls')),
     path('api/', include('actividades.urls')),
+    path('api/', include('api.urls')),
     path('api/health/', health_check, name='health_check'),
     
     # API Documentation

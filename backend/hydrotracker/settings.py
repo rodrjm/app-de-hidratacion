@@ -70,6 +70,7 @@ LOCAL_APPS = [
     'users',
     'consumos',
     'actividades',
+    'api',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -541,3 +542,8 @@ if DEBUG:
         'SHOW_TEMPLATE_CONTEXT': True,
         'SHOW_COLLAPSED': True,
     }
+
+# Configuración de Mercado Pago
+MP_ACCESS_TOKEN = config('MP_ACCESS_TOKEN', default=None)
+BACKEND_URL = config('BACKEND_URL', default='http://localhost:8000')
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')

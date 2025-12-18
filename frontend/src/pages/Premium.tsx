@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 const Premium: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState(false);
 
   const [status, setStatus] = useState<{ is_premium: boolean; subscription_end_date?: string } | null>(null);
   const [noAds, setNoAds] = useState<boolean>(false);
@@ -35,11 +36,22 @@ const Premium: React.FC = () => {
     load();
   }, []);
 
-  const handleUpgrade = (planType: 'monthly' | 'annual' | 'lifetime') => {
-    toast(`Funcionalidad de upgrade pendiente de integrar con pasarela de pago. Plan seleccionado: ${planType}`, {
-      icon: 'ℹ️',
-      duration: 4000
-    });
+  const handleUpgrade = async (planType: 'monthly' | 'annual' | 'lifetime') => {
+    try {
+      setIsSubscribing(true);
+      setError(null);
+      
+      // Crear sesión de checkout
+      const initPoint = await monetizationService.createCheckoutSession(planType);
+      
+      // Redirigir al checkout de Mercado Pago
+      window.location.href = initPoint;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al crear la sesión de pago';
+      setError(msg);
+      toast.error(msg);
+      setIsSubscribing(false);
+    }
   };
 
   // Si el usuario ya es premium, mostrar estado
@@ -157,8 +169,9 @@ const Premium: React.FC = () => {
                   variant="primary"
                   className="w-full"
                   onClick={() => handleUpgrade('monthly')}
+                  disabled={isSubscribing}
                 >
-                  Suscribirme Ahora
+                  {isSubscribing ? 'Procesando...' : 'Suscribirme Ahora'}
                 </Button>
               </div>
             </Card>
@@ -186,8 +199,9 @@ const Premium: React.FC = () => {
                   variant="primary"
                   className="w-full"
                   onClick={() => handleUpgrade('annual')}
+                  disabled={isSubscribing}
                 >
-                  Suscribirme Ahora
+                  {isSubscribing ? 'Procesando...' : 'Suscribirme Ahora'}
                 </Button>
               </div>
             </Card>
@@ -209,8 +223,9 @@ const Premium: React.FC = () => {
                   variant="primary"
                   className="w-full"
                   onClick={() => handleUpgrade('lifetime')}
+                  disabled={isSubscribing}
                 >
-                  Suscribirme Ahora
+                  {isSubscribing ? 'Procesando...' : 'Suscribirme Ahora'}
                 </Button>
               </div>
             </Card>
