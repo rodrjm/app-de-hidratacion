@@ -39,148 +39,128 @@ class CreateSubscriptionView(APIView):
         }
         """
         try:
+            # 1. Obtener datos
             plan_type = request.data.get('planType')
+            user_email = request.user.email
+            user_id = request.user.id
             
-            if not plan_type:
-                return Response(
-                    {'error': 'planType es requerido'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            if plan_type not in ['monthly', 'annual', 'lifetime']:
-                return Response(
-                    {'error': 'planType debe ser "monthly", "annual" o "lifetime"'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            user = request.user
-            
-            # Obtener configuración de Mercado Pago
+            print(f"--- Iniciando suscripción para: {user_email}, Plan: {plan_type} ---")
+
+            # 2. Configurar SDK
             mp_access_token = getattr(settings, 'MP_ACCESS_TOKEN', None)
             if not mp_access_token:
-                logger.error('MP_ACCESS_TOKEN no está configurado en settings')
+                print("ERROR: MP_ACCESS_TOKEN no está configurado en settings")
                 return Response(
                     {'error': 'Configuración de pago no disponible'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
             
-            backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
-            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-            
-            # Inicializar SDK de Mercado Pago
             sdk = mercadopago.SDK(mp_access_token)
             
-            # Configurar precios y frecuencia según el plan
-            if plan_type == 'monthly':
-                # Plan mensual: $1,000 ARS el primer mes, luego $2,000 ARS
-                # Para simplificar, usamos $2,000 ARS como monto base
-                amount = 2000
-                frequency = 1
-                frequency_type = 'months'
-                plan_name = 'Plan Mensual'
-            elif plan_type == 'annual':
-                # Plan anual: $18,000 ARS
-                amount = 18000
-                frequency = 12
-                frequency_type = 'months'
-                plan_name = 'Plan Anual'
-            else:  # lifetime
-                # Plan de por vida: $100,000 ARS (pago único, no suscripción)
-                amount = 100000
-                frequency = None
-                frequency_type = None
-                plan_name = 'Plan De por vida'
-            
-            # Configurar datos de la preferencia/preapproval
+            # URLs
+            backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            # Asegurarse de que no termine en '/' para evitar problemas
+            back_url = frontend_url.rstrip('/')
+            webhook_url = f"{backend_url.rstrip('/')}/api/webhooks/mercadopago/"
+
+            print(f"Backend URL: {backend_url}")
+            print(f"Frontend URL: {frontend_url}")
+            print(f"Back URL (sin trailing slash): {back_url}")
+            print(f"Webhook URL: {webhook_url}")
+
+            # ----------------------------------------
+            # CASO A: PAGO ÚNICO (LIFETIME) - PREFERENCE
+            # ----------------------------------------
             if plan_type == 'lifetime':
-                # Para lifetime, usar preference (pago único)
                 preference_data = {
                     "items": [
                         {
-                            "title": plan_name,
+                            "title": "Dosis Vital - Plan De por vida",
                             "quantity": 1,
-                            "unit_price": float(amount),
-                            "currency_id": "ARS"
+                            "currency_id": "ARS",
+                            "unit_price": 100000.00
                         }
                     ],
                     "payer": {
-                        "email": user.email,
-                        "name": user.get_full_name() or user.username
+                        "email": user_email
                     },
+                    "external_reference": str(user_id),
                     "back_urls": {
-                        "success": f"{frontend_url}/premium?status=success",
-                        "failure": f"{frontend_url}/premium?status=failure",
-                        "pending": f"{frontend_url}/premium?status=pending"
+                        "success": f"{back_url}/premium?status=success",
+                        "failure": f"{back_url}/premium?status=failure",
+                        "pending": f"{back_url}/premium?status=pending"
                     },
                     "auto_return": "approved",
-                    "external_reference": str(user.id),
-                    "notification_url": f"{backend_url}/api/webhooks/mercadopago/",
-                    "statement_descriptor": "DOSIS VITAL PREMIUM"
+                    "notification_url": webhook_url
                 }
                 
-                # Crear preference
-                preference_response = sdk.preference().create(preference_data)
+                print("Creando Preferencia (Lifetime)...")
+                print(f"Preference data: {preference_data}")
+                response = sdk.preference().create(preference_data)
+                print(f"Response status: {response.get('status')}")
+                print(f"Response data: {response}")
                 
-                if preference_response.get('status') != 201:
-                    logger.error(f'Error al crear preference: {preference_response}')
-                    return Response(
-                        {'error': 'Error al crear la preferencia de pago'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-                
-                preference = preference_response.get('response')
-                init_point = preference.get('init_point')
-                
+                if response["status"] == 201:
+                    init_point = response["response"]["init_point"]
+                    print(f"✅ Preference creada exitosamente. Init point: {init_point}")
+                    return Response({"init_point": init_point}, status=status.HTTP_201_CREATED)
+                else:
+                    print("❌ Error MP Preference:", response)
+                    return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
+
+            # ----------------------------------------
+            # CASO B: SUSCRIPCIÓN (MENSUAL/ANUAL) - PREAPPROVAL
+            # ----------------------------------------
             else:
-                # Para monthly y annual, usar preapproval (suscripción recurrente)
+                # Definir frecuencia y precio
+                if plan_type == 'monthly':
+                    frequency = 1
+                    transaction_amount = 2000.00  # $2000 ARS
+                    reason = "Dosis Vital - Plan Mensual"
+                elif plan_type == 'annual':
+                    frequency = 12
+                    transaction_amount = 18000.00  # $18000 ARS
+                    reason = "Dosis Vital - Plan Anual"
+                else:
+                    print(f"❌ Plan inválido: {plan_type}")
+                    return Response({"error": "Plan inválido"}, status=status.HTTP_400_BAD_REQUEST)
+
                 preapproval_data = {
-                    "reason": plan_name,
+                    "reason": reason,
+                    "external_reference": str(user_id),
+                    "payer_email": user_email,  # ¡CRÍTICO! A veces MP falla si no envías el email en preapproval
                     "auto_recurring": {
                         "frequency": frequency,
-                        "frequency_type": frequency_type,
-                        "transaction_amount": float(amount),
-                        "currency_id": "ARS",
-                        "start_date": (timezone.now() + timedelta(days=1)).isoformat(),
-                        "end_date": None  # Sin fecha de fin para suscripciones continuas
+                        "frequency_type": "months",
+                        "transaction_amount": transaction_amount,
+                        "currency_id": "ARS"
                     },
-                    "payer_email": user.email,
-                    "external_reference": str(user.id),
-                    "back_url": f"{frontend_url}/premium?status=success",
-                    "notification_url": f"{backend_url}/api/webhooks/mercadopago/"
+                    "back_url": f"{back_url}/premium",  # Nota: Es 'back_url' (singular), no 'back_urls'
+                    "status": "authorized",
+                    "notification_url": webhook_url
                 }
-                
-                # Crear preapproval
-                preapproval_response = sdk.preapproval().create(preapproval_data)
-                
-                if preapproval_response.get('status') != 201:
-                    logger.error(f'Error al crear preapproval: {preapproval_response}')
-                    return Response(
-                        {'error': 'Error al crear la suscripción'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-                
-                preapproval = preapproval_response.get('response')
-                init_point = preapproval.get('init_point')
-            
-            if not init_point:
-                logger.error('No se obtuvo init_point de Mercado Pago')
-                return Response(
-                    {'error': 'Error al obtener URL de pago'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-            
-            logger.info(f'Suscripción creada para usuario {user.id}, plan: {plan_type}, init_point: {init_point}')
-            
-            return Response({
-                'init_point': init_point
-            }, status=status.HTTP_201_CREATED)
-            
+
+                print(f"Creando Preapproval ({plan_type})...")
+                print(f"Preapproval data: {preapproval_data}")
+                response = sdk.preapproval().create(preapproval_data)
+                print(f"Response status: {response.get('status')}")
+                print(f"Response data: {response}")
+
+                if response["status"] == 201:
+                    init_point = response["response"]["init_point"]
+                    print(f"✅ Preapproval creado exitosamente. Init point: {init_point}")
+                    return Response({"init_point": init_point}, status=status.HTTP_201_CREATED)
+                else:
+                    # AQUÍ ES DONDE ESTÁ EL PROBLEMA
+                    print("❌ Error MP Preapproval:", response)
+                    return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
-            logger.exception(f'Error inesperado al crear suscripción: {str(e)}')
-            return Response(
-                {'error': 'Error interno del servidor'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            print(f"❌ Error Servidor: {str(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class MercadoPagoWebhookView(APIView):
