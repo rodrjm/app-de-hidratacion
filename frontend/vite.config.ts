@@ -78,9 +78,14 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // Agregar hash a los nombres de archivos para cache busting
     rollupOptions: {
       output: {
         manualChunks: undefined, // Deshabilitar manual chunks para evitar problemas de orden de carga
+        // Generar nombres de archivo con hash para mejor cache busting
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
         // manualChunks: (id) => {
         //   // Vendor chunks - Asegurar que React se carga primero
         //   if (id.includes('node_modules')) {
@@ -119,5 +124,7 @@ export default defineConfig({
         drop_debugger: true,
       },
     },
+    // Configuración de caché para producción
+    assetsInlineLimit: 4096, // Inline assets menores a 4kb
   }
 })

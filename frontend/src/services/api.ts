@@ -47,9 +47,15 @@ class ApiService {
   private token: string | null = null;
 
   constructor() {
+    // Timeout aumentado a 35 segundos para dar tiempo al servidor de Render de despertar
+    // Render tarda ~30 segundos en cold start, así que 35s da un margen cómodo
+    const timeout = import.meta.env?.VITE_API_TIMEOUT 
+      ? parseInt(import.meta.env.VITE_API_TIMEOUT, 10) 
+      : 35000; // 35 segundos por defecto para Render
+    
     this.api = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 10000,
+      timeout: timeout,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -92,6 +98,18 @@ class ApiService {
         return response;
       },
       async (error) => {
+        // Detectar si el servidor está despertando (timeout o conexión rechazada)
+        const isServerWakingUp = 
+          error.code === 'ECONNABORTED' || // Timeout
+          error.code === 'ERR_NETWORK' || // Network error
+          (error.response?.status >= 500 && error.response?.status < 600) || // Server errors
+          (!error.response && error.request); // Request made but no response (servidor dormido)
+        
+        if (isServerWakingUp) {
+          console.warn('⚠️ Server appears to be waking up, request will be retried');
+          // No mostrar toast aquí, el retry logic se encargará
+        }
+        
         // Manejar errores 401 (No autenticado)
         if (error.response?.status === 401) {
           const currentPath = window.location.pathname;

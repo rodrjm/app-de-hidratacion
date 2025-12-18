@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
@@ -11,20 +11,50 @@ import Layout from '@/components/layout/Layout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
-// Lazy load pages for code splitting
-const Login = lazy(() => import('@/pages/Login'));
-const Register = lazy(() => import('@/pages/Register'));
-const Onboarding = lazy(() => import('@/pages/Onboarding'));
-const Dashboard = lazy(() => import('@/pages/Dashboard'));
-const Profile = lazy(() => import('@/pages/Profile'));
-const Statistics = lazy(() => import('@/pages/Statistics'));
-const Recipientes = lazy(() => import('@/pages/Recipientes'));
-const Recordatorios = lazy(() => import('@/pages/Recordatorios'));
-const Premium = lazy(() => import('@/pages/Premium'));
-const Bebidas = lazy(() => import('@/pages/Bebidas'));
+// Utils
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
+import { wakeUpServer } from '@/utils/wakeUpServer';
+
+// Lazy load pages for code splitting with retry logic
+const Login = lazyWithRetry(() => import('@/pages/Login'));
+const Register = lazyWithRetry(() => import('@/pages/Register'));
+const Onboarding = lazyWithRetry(() => import('@/pages/Onboarding'));
+const Dashboard = lazyWithRetry(() => import('@/pages/Dashboard'));
+const Profile = lazyWithRetry(() => import('@/pages/Profile'));
+const Statistics = lazyWithRetry(() => import('@/pages/Statistics'));
+const Recipientes = lazyWithRetry(() => import('@/pages/Recipientes'));
+const Recordatorios = lazyWithRetry(() => import('@/pages/Recordatorios'));
+const Premium = lazyWithRetry(() => import('@/pages/Premium'));
+const Bebidas = lazyWithRetry(() => import('@/pages/Bebidas'));
 
 const App: React.FC = () => {
   console.log('App.tsx: Component rendering');
+  
+  const [serverWakingUp, setServerWakingUp] = useState(false);
+  const [wakeUpProgress, setWakeUpProgress] = useState({ attempt: 0, retries: 5 });
+  
+  // Escuchar eventos de servidor despertando
+  useEffect(() => {
+    const handleServerWakeUp = (event: CustomEvent) => {
+      setServerWakingUp(true);
+      setWakeUpProgress({
+        attempt: event.detail.attempt,
+        retries: event.detail.retries
+      });
+    };
+    
+    const handleModuleLoaded = () => {
+      setServerWakingUp(false);
+    };
+    
+    window.addEventListener('server-waking-up', handleServerWakeUp as EventListener);
+    window.addEventListener('module-loaded', handleModuleLoaded);
+    
+    return () => {
+      window.removeEventListener('server-waking-up', handleServerWakeUp as EventListener);
+      window.removeEventListener('module-loaded', handleModuleLoaded);
+    };
+  }, []);
   
   try {
     const { isAuthenticated, isLoading } = useAuthStore();
@@ -33,6 +63,13 @@ const App: React.FC = () => {
     
     // Initialize auth state
     useAuthInit();
+    
+    // Despertar el servidor al cargar la app (solo en producción)
+    useEffect(() => {
+      if (import.meta.env.PROD) {
+        wakeUpServer();
+      }
+    }, []);
 
     if (isLoading) {
       console.log('App.tsx: Showing loading spinner');
@@ -42,6 +79,17 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="App">
+        {/* Banner de servidor despertando */}
+        {serverWakingUp && (
+          <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-white px-4 py-2 text-center z-50 shadow-lg">
+            <div className="flex items-center justify-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span className="text-sm font-medium">
+                El servidor está despertando... Por favor espera ({wakeUpProgress.attempt}/{wakeUpProgress.retries})
+              </span>
+            </div>
+          </div>
+        )}
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* Public Routes */}
