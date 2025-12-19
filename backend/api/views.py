@@ -12,6 +12,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 import mercadopago
+import datetime
 
 from users.models import User
 
@@ -58,19 +59,18 @@ class CreateSubscriptionView(APIView):
             sdk = mercadopago.SDK(mp_access_token)
             
             # URLs
-            backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
-            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-            # Asegurarse de que no termine en '/' para evitar problemas
-            back_url = frontend_url.rstrip('/')
-            webhook_url = f"{backend_url.rstrip('/')}/api/webhooks/mercadopago/"
-
-            print(f"Backend URL: {backend_url}")
-            print(f"Frontend URL: {frontend_url}")
-            print(f"Back URL (sin trailing slash): {back_url}")
-            print(f"Webhook URL: {webhook_url}")
+            # Quitamos la barra final para evitar dobles barras //
+            back_url = settings.FRONTEND_URL.rstrip('/') 
+            webhook_url = f"{settings.BACKEND_URL.rstrip('/')}/api/webhooks/mercadopago/"
+            
+            # 3. FECHA DE INICIO (CRÍTICO)
+            # Definimos que empiece dentro de 1 hora para evitar problemas de "fecha en el pasado" por diferencias de hora
+            # Formato ISO 8601 estricto con offset -03:00 (Argentina/Brasil)
+            future_time = datetime.datetime.now() + datetime.timedelta(hours=1)
+            start_date = future_time.strftime("%Y-%m-%dT%H:%M:%S.000-03:00")
 
             # ----------------------------------------
-            # CASO A: PAGO ÚNICO (LIFETIME) - PREFERENCE
+            # CASO A: PAGO ÚNICO (LIFETIME)
             # ----------------------------------------
             if plan_type == 'lifetime':
                 preference_data = {
@@ -82,84 +82,66 @@ class CreateSubscriptionView(APIView):
                             "unit_price": 100000.00
                         }
                     ],
-                    "payer": {
-                        "email": user_email
-                    },
+                    "payer": { "email": user_email },
                     "external_reference": str(user_id),
                     "back_urls": {
-                        "success": f"{back_url}/premium?status=success",
-                        "failure": f"{back_url}/premium?status=failure",
-                        "pending": f"{back_url}/premium?status=pending"
+                        "success": f"{back_url}/premium",
+                        "failure": f"{back_url}/premium",
+                        "pending": f"{back_url}/premium"
                     },
                     "auto_return": "approved",
                     "notification_url": webhook_url
                 }
                 
-                print("Creando Preferencia (Lifetime)...")
-                print(f"Preference data: {preference_data}")
                 response = sdk.preference().create(preference_data)
-                print(f"Response status: {response.get('status')}")
-                print(f"Response data: {response}")
                 
                 if response["status"] == 201:
-                    init_point = response["response"]["init_point"]
-                    print(f"✅ Preference creada exitosamente. Init point: {init_point}")
-                    return Response({"init_point": init_point}, status=status.HTTP_201_CREATED)
+                    return Response({"init_point": response["response"]["init_point"]})
                 else:
-                    print("❌ Error MP Preference:", response)
                     return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
 
             # ----------------------------------------
-            # CASO B: SUSCRIPCIÓN (MENSUAL/ANUAL) - PREAPPROVAL
+            # CASO B: SUSCRIPCIÓN (MENSUAL/ANUAL)
             # ----------------------------------------
             else:
-                # Definir frecuencia y precio
                 if plan_type == 'monthly':
                     frequency = 1
-                    transaction_amount = 2000.00  # $2000 ARS
+                    transaction_amount = 2000.00
                     reason = "Dosis Vital - Plan Mensual"
                 elif plan_type == 'annual':
                     frequency = 12
-                    transaction_amount = 18000.00  # $18000 ARS
+                    transaction_amount = 18000.00
                     reason = "Dosis Vital - Plan Anual"
                 else:
-                    print(f"❌ Plan inválido: {plan_type}")
                     return Response({"error": "Plan inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
                 preapproval_data = {
                     "reason": reason,
                     "external_reference": str(user_id),
-                    "payer_email": user_email,  # ¡CRÍTICO! A veces MP falla si no envías el email en preapproval
+                    "payer_email": user_email,
                     "auto_recurring": {
                         "frequency": frequency,
                         "frequency_type": "months",
                         "transaction_amount": transaction_amount,
-                        "currency_id": "ARS"
+                        "currency_id": "ARS",
+                        "start_date": start_date  # <--- ¡ESTO FALTABA!
                     },
-                    "back_url": f"{back_url}/premium",  # Nota: Es 'back_url' (singular), no 'back_urls'
+                    "back_url": f"{back_url}/premium",
                     "status": "authorized",
                     "notification_url": webhook_url
                 }
 
-                print(f"Creando Preapproval ({plan_type})...")
-                print(f"Preapproval data: {preapproval_data}")
+                print(f"Enviando data a MP con start_date: {start_date}") 
                 response = sdk.preapproval().create(preapproval_data)
-                print(f"Response status: {response.get('status')}")
-                print(f"Response data: {response}")
 
                 if response["status"] == 201:
-                    init_point = response["response"]["init_point"]
-                    print(f"✅ Preapproval creado exitosamente. Init point: {init_point}")
-                    return Response({"init_point": init_point}, status=status.HTTP_201_CREATED)
+                    return Response({"init_point": response["response"]["init_point"]})
                 else:
-                    # AQUÍ ES DONDE ESTÁ EL PROBLEMA
-                    print("❌ Error MP Preapproval:", response)
+                    print("❌ Error MP Preapproval:", response) 
                     return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            print(f"❌ Error Servidor: {str(e)}")
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            print("Error Servidor:", str(e))
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
