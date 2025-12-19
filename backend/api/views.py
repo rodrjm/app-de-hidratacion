@@ -12,7 +12,6 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 import mercadopago
-import datetime
 
 from users.models import User
 
@@ -45,7 +44,7 @@ class CreateSubscriptionView(APIView):
             user_email = request.user.email
             user_id = request.user.id
             
-            print(f"--- Iniciando suscripción para: {user_email}, Plan: {plan_type} ---")
+            print(f"--- Iniciando suscripción simplificada para: {user_email}, Plan: {plan_type} ---")
 
             # 2. Configurar SDK
             mp_access_token = getattr(settings, 'MP_ACCESS_TOKEN', None)
@@ -61,19 +60,6 @@ class CreateSubscriptionView(APIView):
             # URLs
             back_url = settings.FRONTEND_URL.rstrip('/')
             webhook_url = f"{settings.BACKEND_URL.rstrip('/')}/api/webhooks/mercadopago/"
-            
-            # ----------------------------------------
-            # 3. FECHA DE INICIO (CORREGIDA - UTC PURO)
-            # ----------------------------------------
-            # Obtenemos la hora actual en UTC real
-            now_utc = datetime.datetime.now(datetime.timezone.utc)
-            
-            # Sumamos 1 hora para garantizar que sea "futuro" para Mercado Pago
-            # Esto evita el error "cannot be a past date" por diferencias de milisegundos o relojes
-            future_time = now_utc + datetime.timedelta(hours=1)
-            
-            # Formato ISO 8601 con Z (Zulu/UTC) explícito: 2023-12-18T15:30:00.000Z
-            start_date = future_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
             # ----------------------------------------
             # CASO A: PAGO ÚNICO (LIFETIME)
@@ -121,6 +107,7 @@ class CreateSubscriptionView(APIView):
                 else:
                     return Response({"error": "Plan inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
+                # PAYLOAD SIMPLIFICADO: Sin start_date
                 preapproval_data = {
                     "reason": reason,
                     "external_reference": str(user_id),
@@ -129,21 +116,22 @@ class CreateSubscriptionView(APIView):
                         "frequency": frequency,
                         "frequency_type": "months",
                         "transaction_amount": transaction_amount,
-                        "currency_id": "ARS",
-                        "start_date": start_date  # <--- ¡ESTO FALTABA!
+                        "currency_id": "ARS"
+                        # Eliminamos start_date para que MP use la hora actual del servidor de ellos
                     },
                     "back_url": f"{back_url}/premium",
                     "status": "authorized",
                     "notification_url": webhook_url
                 }
 
-                print(f"Enviando data a MP con start_date (UTC): {start_date}") 
+                print(f"Enviando data SIMPLIFICADA a MP: {preapproval_data}") 
                 response = sdk.preapproval().create(preapproval_data)
 
                 if response["status"] == 201:
                     return Response({"init_point": response["response"]["init_point"]})
                 else:
-                    print("❌ Error MP Preapproval:", response) 
+                    # IMPORTANTE: Esto imprimirá la CAUSA real en los logs si falla
+                    print("❌ Error MP Preapproval:", response)
                     return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
