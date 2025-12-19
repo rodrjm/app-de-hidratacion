@@ -59,15 +59,21 @@ class CreateSubscriptionView(APIView):
             sdk = mercadopago.SDK(mp_access_token)
             
             # URLs
-            # Quitamos la barra final para evitar dobles barras //
-            back_url = settings.FRONTEND_URL.rstrip('/') 
+            back_url = settings.FRONTEND_URL.rstrip('/')
             webhook_url = f"{settings.BACKEND_URL.rstrip('/')}/api/webhooks/mercadopago/"
             
-            # 3. FECHA DE INICIO (CRÍTICO)
-            # Definimos que empiece dentro de 1 hora para evitar problemas de "fecha en el pasado" por diferencias de hora
-            # Formato ISO 8601 estricto con offset -03:00 (Argentina/Brasil)
-            future_time = datetime.datetime.now() + datetime.timedelta(hours=1)
-            start_date = future_time.strftime("%Y-%m-%dT%H:%M:%S.000-03:00")
+            # ----------------------------------------
+            # 3. FECHA DE INICIO (CORREGIDA - UTC PURO)
+            # ----------------------------------------
+            # Obtenemos la hora actual en UTC real
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            
+            # Sumamos 1 hora para garantizar que sea "futuro" para Mercado Pago
+            # Esto evita el error "cannot be a past date" por diferencias de milisegundos o relojes
+            future_time = now_utc + datetime.timedelta(hours=1)
+            
+            # Formato ISO 8601 con Z (Zulu/UTC) explícito: 2023-12-18T15:30:00.000Z
+            start_date = future_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
             # ----------------------------------------
             # CASO A: PAGO ÚNICO (LIFETIME)
@@ -131,7 +137,7 @@ class CreateSubscriptionView(APIView):
                     "notification_url": webhook_url
                 }
 
-                print(f"Enviando data a MP con start_date: {start_date}") 
+                print(f"Enviando data a MP con start_date (UTC): {start_date}") 
                 response = sdk.preapproval().create(preapproval_data)
 
                 if response["status"] == 201:
