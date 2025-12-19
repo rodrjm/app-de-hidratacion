@@ -44,7 +44,7 @@ class CreateSubscriptionView(APIView):
             user_email = request.user.email
             user_id = request.user.id
             
-            print(f"--- Iniciando suscripción simplificada para: {user_email}, Plan: {plan_type} ---")
+            print(f"--- Intento FINAL suscripción para: {user_email}, Plan: {plan_type} ---")
 
             # 2. Configurar SDK
             mp_access_token = getattr(settings, 'MP_ACCESS_TOKEN', None)
@@ -57,9 +57,8 @@ class CreateSubscriptionView(APIView):
             
             sdk = mercadopago.SDK(mp_access_token)
             
-            # URLs
+            # URL de retorno
             back_url = settings.FRONTEND_URL.rstrip('/')
-            webhook_url = f"{settings.BACKEND_URL.rstrip('/')}/api/webhooks/mercadopago/"
 
             # ----------------------------------------
             # CASO A: PAGO ÚNICO (LIFETIME)
@@ -81,8 +80,7 @@ class CreateSubscriptionView(APIView):
                         "failure": f"{back_url}/premium",
                         "pending": f"{back_url}/premium"
                     },
-                    "auto_return": "approved",
-                    "notification_url": webhook_url
+                    "auto_return": "approved"
                 }
                 
                 response = sdk.preference().create(preference_data)
@@ -107,7 +105,7 @@ class CreateSubscriptionView(APIView):
                 else:
                     return Response({"error": "Plan inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
-                # PAYLOAD SIMPLIFICADO: Sin start_date
+                # PAYLOAD LIMPIO: Sin status, sin fechas, sin notification_url (por ahora)
                 preapproval_data = {
                     "reason": reason,
                     "external_reference": str(user_id),
@@ -117,20 +115,17 @@ class CreateSubscriptionView(APIView):
                         "frequency_type": "months",
                         "transaction_amount": transaction_amount,
                         "currency_id": "ARS"
-                        # Eliminamos start_date para que MP use la hora actual del servidor de ellos
                     },
-                    "back_url": f"{back_url}/premium",
-                    "status": "authorized",
-                    "notification_url": webhook_url
+                    "back_url": f"{back_url}/premium"
                 }
 
-                print(f"Enviando data SIMPLIFICADA a MP: {preapproval_data}") 
+                print(f"Enviando data LIMPIA a MP: {preapproval_data}") 
                 response = sdk.preapproval().create(preapproval_data)
 
+                # MP suele devolver 201 Created
                 if response["status"] == 201:
                     return Response({"init_point": response["response"]["init_point"]})
                 else:
-                    # IMPORTANTE: Esto imprimirá la CAUSA real en los logs si falla
                     print("❌ Error MP Preapproval:", response)
                     return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
 
