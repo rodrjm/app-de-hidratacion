@@ -149,15 +149,23 @@ class MercadoPagoWebhookView(APIView):
         Procesa las notificaciones de webhook de Mercado Pago.
         
         Mercado Pago envía notificaciones con:
-        - topic: tipo de notificación (preapproval, payment, etc.)
+        - type/topic: tipo de notificación (preapproval, payment, subscription_preapproval, etc.)
         - id: ID del recurso (preapproval_id o payment_id)
+        Puede venir en query params (?type=payment&data.id=123) o en el body
         """
         try:
-            topic = request.data.get('type') or request.data.get('topic')
-            resource_id = request.data.get('data', {}).get('id') or request.data.get('id')
+            # Mercado Pago puede enviar los datos en query params o en el body
+            topic = request.GET.get('type') or request.data.get('type') or request.data.get('topic')
+            resource_id = (
+                request.GET.get('data.id') or 
+                request.data.get('data', {}).get('id') or 
+                request.data.get('id')
+            )
+            
+            logger.info(f'Webhook recibido - topic: {topic}, resource_id: {resource_id}, query_params: {dict(request.GET)}, body: {request.data}')
             
             if not topic or not resource_id:
-                logger.warning(f'Webhook recibido sin topic o resource_id: {request.data}')
+                logger.warning(f'Webhook recibido sin topic o resource_id. Query: {dict(request.GET)}, Body: {request.data}')
                 return Response({'status': 'ignored'}, status=status.HTTP_200_OK)
             
             # Obtener configuración de Mercado Pago
@@ -169,7 +177,7 @@ class MercadoPagoWebhookView(APIView):
             sdk = mercadopago.SDK(mp_access_token)
             
             # Procesar según el tipo de notificación
-            if topic == 'preapproval':
+            if topic in ('preapproval', 'subscription_preapproval'):
                 # Notificación de suscripción (preapproval)
                 preapproval_response = sdk.preapproval().get(resource_id)
                 
@@ -187,10 +195,17 @@ class MercadoPagoWebhookView(APIView):
                 # Estados válidos: 'pending', 'authorized', 'paused', 'cancelled'
                 if status_preapproval == 'authorized':
                     self._activate_premium_user(external_reference, preapproval)
+                else:
+                    logger.info(f'Preapproval {resource_id} en estado {status_preapproval}, no se activa premium')
                 
             elif topic == 'payment':
                 # Notificación de pago (para lifetime o pagos únicos)
                 payment_response = sdk.payment().get(resource_id)
+                
+                # Manejar caso cuando el payment no existe (404) - puede ser rechazado/cancelado
+                if payment_response.get('status') == 404:
+                    logger.warning(f'Payment {resource_id} no encontrado (404). Puede haber sido rechazado/cancelado antes de procesarse.')
+                    return Response({'status': 'ignored', 'reason': 'payment_not_found'}, status=status.HTTP_200_OK)
                 
                 if payment_response.get('status') != 200:
                     logger.error(f'Error al obtener payment {resource_id}: {payment_response}')
@@ -205,6 +220,8 @@ class MercadoPagoWebhookView(APIView):
                 # Activar cuenta premium si el pago está aprobado
                 if status_payment == 'approved':
                     self._activate_premium_user(external_reference, payment)
+                else:
+                    logger.info(f'Payment {resource_id} en estado {status_payment}, no se activa premium')
             
             return Response({'status': 'ok'}, status=status.HTTP_200_OK)
             
