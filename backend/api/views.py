@@ -49,11 +49,19 @@ class CreateSubscriptionView(APIView):
             # 2. Configurar SDK
             mp_access_token = getattr(settings, 'MP_ACCESS_TOKEN', None)
             if not mp_access_token:
-                print("ERROR: MP_ACCESS_TOKEN no está configurado en settings")
+                logger.error("MP_ACCESS_TOKEN no está configurado en settings")
                 return Response(
                     {'error': 'Configuración de pago no disponible'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+            
+            # Logging para debug: verificar que el token sea de prueba
+            token_prefix = mp_access_token[:10] if len(mp_access_token) > 10 else mp_access_token
+            is_test_token = mp_access_token.startswith('TEST-')
+            logger.info(f"MP_ACCESS_TOKEN configurado - Prefijo: {token_prefix}..., Es TEST: {is_test_token}")
+            
+            if not is_test_token:
+                logger.warning(f"⚠️ ADVERTENCIA: El token NO empieza con TEST-. Esto causará que los pagos usen modo LIVE.")
             
             sdk = mercadopago.SDK(mp_access_token)
             
@@ -162,7 +170,10 @@ class MercadoPagoWebhookView(APIView):
                 request.data.get('id')
             )
             
-            logger.info(f'Webhook recibido - topic: {topic}, resource_id: {resource_id}, query_params: {dict(request.GET)}, body: {request.data}')
+            # Detectar modo live desde el webhook
+            live_mode = request.data.get('live_mode', False)
+            
+            logger.info(f'Webhook recibido - topic: {topic}, resource_id: {resource_id}, live_mode: {live_mode}, query_params: {dict(request.GET)}, body: {request.data}')
             
             if not topic or not resource_id:
                 logger.warning(f'Webhook recibido sin topic o resource_id. Query: {dict(request.GET)}, Body: {request.data}')
@@ -173,6 +184,16 @@ class MercadoPagoWebhookView(APIView):
             if not mp_access_token:
                 logger.error('MP_ACCESS_TOKEN no está configurado en settings')
                 return Response({'status': 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # Verificar token y modo live
+            is_test_token = mp_access_token.startswith('TEST-')
+            if live_mode and is_test_token:
+                logger.warning(f'⚠️ CONTRADICCIÓN: El webhook viene en modo LIVE pero el token empieza con TEST-. '
+                              f'Esto puede indicar que el token TEST- está asociado a una cuenta diferente o '
+                              f'que hay un problema con la configuración. Token: {mp_access_token[:15]}...')
+            elif live_mode and not is_test_token:
+                logger.error(f'❌ ERROR: Webhook en modo LIVE y token NO es de prueba. '
+                            f'Las tarjetas de prueba NO funcionarán. Token: {mp_access_token[:15]}...')
             
             sdk = mercadopago.SDK(mp_access_token)
             
