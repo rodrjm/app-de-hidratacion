@@ -544,6 +544,8 @@ if DEBUG:
     }
 
 # Configuración de Mercado Pago
+# MP_ACCESS_TOKEN y MP_PUBLIC_KEY deben provenir de la cuenta VENDEDOR (no del comprador)
 MP_ACCESS_TOKEN = config('MP_ACCESS_TOKEN', default=None)
+MP_PUBLIC_KEY = config('MP_PUBLIC_KEY', default=None)
 BACKEND_URL = config('BACKEND_URL', default='http://localhost:8000')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')

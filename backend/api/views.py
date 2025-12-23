@@ -59,6 +59,7 @@ class CreateSubscriptionView(APIView):
             
             # URL de retorno
             back_url = settings.FRONTEND_URL.rstrip('/')
+            notification_url = f"{settings.BACKEND_URL.rstrip('/')}/api/webhooks/mercadopago/"
 
             # ----------------------------------------
             # CASO A: PAGO ÚNICO (LIFETIME)
@@ -80,6 +81,7 @@ class CreateSubscriptionView(APIView):
                         "failure": f"{back_url}/premium",
                         "pending": f"{back_url}/premium"
                     },
+                    "notification_url": notification_url,
                     "auto_return": "approved"
                 }
                 
@@ -116,7 +118,8 @@ class CreateSubscriptionView(APIView):
                         "transaction_amount": transaction_amount,
                         "currency_id": "ARS"
                     },
-                    "back_url": f"{back_url}/premium"
+                    "back_url": f"{back_url}/premium",
+                    "notification_url": notification_url
                 }
 
                 print(f"Enviando data LIMPIA a MP: {preapproval_data}") 
