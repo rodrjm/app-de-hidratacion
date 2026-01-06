@@ -36,9 +36,13 @@ class SubscriptionStatusView(APIView):
         if is_premium and hasattr(user, 'subscription_end_date'):
             subscription_end_date = user.subscription_end_date
         
+        # Obtener tipo de plan
+        plan_type = getattr(user, 'plan_type', None) if is_premium else None
+        
         data = {
             'is_premium': is_premium,
-            'subscription_end_date': subscription_end_date
+            'subscription_end_date': subscription_end_date,
+            'plan_type': plan_type
         }
         
         serializer = SubscriptionStatusSerializer(data)

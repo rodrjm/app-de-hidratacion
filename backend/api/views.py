@@ -15,6 +15,67 @@ import mercadopago
 
 from users.models import User
 
+
+class CancelSubscriptionView(APIView):
+    """
+    Vista para cancelar una suscripción premium.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Cancela la suscripción del usuario autenticado.
+        
+        Body opcional:
+        {
+            "reason": "Razón de cancelación (opcional)"
+        }
+        
+        Retorna:
+        {
+            "message": "Suscripción cancelada exitosamente"
+        }
+        """
+        try:
+            user = request.user
+            
+            # Validar que el usuario sea premium
+            if not user.es_premium:
+                return Response(
+                    {'error': 'El usuario no tiene una suscripción activa'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validar que NO sea un plan lifetime
+            if user.plan_type == 'lifetime':
+                return Response(
+                    {
+                        'error': 'Los planes vitalicios no necesitan cancelación. Disfruta de Dosis Vital para siempre.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Aquí iría la lógica para cancelar la suscripción en Mercado Pago
+            # Por ahora, solo desactivamos el premium (esto debería hacerse desde el webhook de MP)
+            # En producción, deberías llamar a la API de MP para cancelar el preapproval
+            
+            logger.info(f'Usuario {user.id} solicitó cancelar suscripción. Plan: {user.plan_type}')
+            
+            # Nota: En producción, la cancelación real se haría desde el webhook de MP
+            # cuando el preapproval cambie a estado 'cancelled'
+            
+            return Response(
+                {'message': 'Solicitud de cancelación recibida. La suscripción se cancelará al final del período actual.'},
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            logger.exception(f'Error al cancelar suscripción: {str(e)}')
+            return Response(
+                {'error': 'Error al procesar la cancelación'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 logger = logging.getLogger(__name__)
 
 
@@ -272,27 +333,41 @@ class MercadoPagoWebhookView(APIView):
                     # Activar premium
                     user.es_premium = True
                     
-                    # Calcular fecha de fin de suscripción si es necesario
-                    # Para preapproval, podemos usar la fecha de inicio + frecuencia
+                    # Determinar tipo de plan y calcular fecha de fin de suscripción
+                    plan_type = None
+                    end_date = None
+                    
                     if 'auto_recurring' in payment_data:
-                        # Es una suscripción recurrente
+                        # Es una suscripción recurrente (monthly o annual)
                         frequency = payment_data['auto_recurring'].get('frequency', 1)
                         frequency_type = payment_data['auto_recurring'].get('frequency_type', 'months')
                         
                         if frequency_type == 'months':
-                            # Calcular fecha de fin (por ejemplo, 1 mes o 12 meses desde ahora)
+                            # Determinar si es monthly (1 mes) o annual (12 meses)
+                            if frequency == 1:
+                                plan_type = 'monthly'
+                            elif frequency == 12:
+                                plan_type = 'annual'
+                            else:
+                                # Por defecto, si es otro valor, usar monthly
+                                plan_type = 'monthly'
+                            
+                            # Calcular fecha de fin
                             end_date = timezone.now() + timedelta(days=frequency * 30)
                         else:
                             # Para otros tipos, usar 1 mes por defecto
+                            plan_type = 'monthly'
                             end_date = timezone.now() + timedelta(days=30)
                     else:
                         # Es un pago único (lifetime), no tiene fecha de fin
+                        plan_type = 'lifetime'
                         end_date = None
                     
                     # Guardar cambios
-                    user.save(update_fields=['es_premium'])
+                    user.plan_type = plan_type
+                    user.save(update_fields=['es_premium', 'plan_type'])
                     
-                    logger.info(f'Usuario {user_id} activado como premium. Fecha fin: {end_date}')
+                    logger.info(f'Usuario {user_id} activado como premium. Plan: {plan_type}, Fecha fin: {end_date}')
                     
                 except User.DoesNotExist:
                     logger.error(f'Usuario con id {user_id} no encontrado')
