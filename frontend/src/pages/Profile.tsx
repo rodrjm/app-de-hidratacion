@@ -59,7 +59,7 @@ const Profile: React.FC = () => {
 
   // Premium state
   const [premiumLoading, setPremiumLoading] = useState(true);
-  const [premiumStatus, setPremiumStatus] = useState<{ is_premium: boolean; subscription_end_date?: string } | null>(null);
+  const [premiumStatus, setPremiumStatus] = useState<{ is_premium: boolean; subscription_end_date?: string; plan_type?: 'monthly' | 'annual' | 'lifetime' | null } | null>(null);
   const [premiumFeatures, setPremiumFeatures] = useState<string[]>([]);
   const [premiumUpgrade, setPremiumUpgrade] = useState<{ message: string; features: string[] } | null>(null);
   const [noAds, setNoAds] = useState<boolean>(false);
@@ -677,25 +677,41 @@ const tabs = [
                             </div>
                           </div>
 
-                          {/* Botones de gestión */}
-                          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                toast('Funcionalidad de editar plan próximamente disponible', { icon: 'ℹ️' });
-                              }}
-                              className="flex-1"
-                            >
-                              Editar Plan
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => setShowCancelSubscriptionModal(true)}
-                              className="flex-1 border-error-300 text-error-600 hover:bg-error-50 hover:border-error-400"
-                            >
-                              Cancelar Suscripción
-                            </Button>
-                          </div>
+                          {/* Badge para usuarios Lifetime o Botones de gestión para otros planes */}
+                          {premiumStatus?.plan_type === 'lifetime' ? (
+                            <div className="pt-2">
+                              <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-lg p-4 text-center">
+                                <div className="flex items-center justify-center mb-2">
+                                  <span className="text-2xl mr-2">✨</span>
+                                  <p className="text-yellow-800 font-display font-bold text-lg">
+                                    Eres miembro Vitalicio
+                                  </p>
+                                </div>
+                                <p className="text-yellow-700 text-sm">
+                                  Disfruta de Dosis Vital para siempre.
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  toast('Funcionalidad de editar plan próximamente disponible', { icon: 'ℹ️' });
+                                }}
+                                className="flex-1"
+                              >
+                                Editar Plan
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setShowCancelSubscriptionModal(true)}
+                                className="flex-1 border-error-300 text-error-600 hover:bg-error-50 hover:border-error-400"
+                              >
+                                Cancelar Suscripción
+                              </Button>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="flex items-center justify-between">

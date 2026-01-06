@@ -10,7 +10,7 @@ const Premium: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubscribing, setIsSubscribing] = useState(false);
 
-  const [status, setStatus] = useState<{ is_premium: boolean; subscription_end_date?: string } | null>(null);
+  const [status, setStatus] = useState<{ is_premium: boolean; subscription_end_date?: string; plan_type?: 'monthly' | 'annual' | 'lifetime' | null } | null>(null);
   const [noAds, setNoAds] = useState<boolean>(false);
 
   useEffect(() => {
@@ -56,6 +56,8 @@ const Premium: React.FC = () => {
 
   // Si el usuario ya es premium, mostrar estado
   if (status?.is_premium) {
+    const isLifetime = status?.plan_type === 'lifetime';
+    
     return (
       <div className="min-h-screen bg-primary-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -63,15 +65,31 @@ const Premium: React.FC = () => {
             {isLoading ? (
               <div className="text-neutral-500">Cargando...</div>
             ) : (
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-neutral-700 font-display font-medium">
-                    Usuario Premium activo
-                  </p>
-                  {status?.subscription_end_date && (
-                    <p className="text-sm text-neutral-500">Vence: {new Date(status.subscription_end_date).toLocaleDateString()}</p>
-                  )}
-                </div>
+              <div className="space-y-4">
+                {isLifetime ? (
+                  <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
+                    <div className="flex items-center justify-center mb-3">
+                      <span className="text-3xl mr-2">✨</span>
+                      <p className="text-yellow-800 font-display font-bold text-xl">
+                        Eres miembro Vitalicio
+                      </p>
+                    </div>
+                    <p className="text-yellow-700 text-base">
+                      Disfruta de Dosis Vital para siempre.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-neutral-700 font-display font-medium">
+                        Usuario Premium activo
+                      </p>
+                      {status?.subscription_end_date && (
+                        <p className="text-sm text-neutral-500">Vence: {new Date(status.subscription_end_date).toLocaleDateString()}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </Card>

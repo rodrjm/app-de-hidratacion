@@ -35,6 +35,18 @@ class User(AbstractUser):
         verbose_name='Usuario Premium',
         help_text='Indica si el usuario tiene una suscripción premium'
     )
+    plan_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('monthly', 'Mensual'),
+            ('annual', 'Anual'),
+            ('lifetime', 'De por vida'),
+        ],
+        null=True,
+        blank=True,
+        verbose_name='Tipo de Plan',
+        help_text='Tipo de plan premium del usuario (solo para usuarios premium)'
+    )
     fecha_nacimiento = models.DateField(
         verbose_name='Fecha de nacimiento',
         help_text='Fecha de nacimiento del usuario',

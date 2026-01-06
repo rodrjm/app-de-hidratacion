@@ -164,6 +164,7 @@ export interface Insights {
 export interface EstadoSuscripcion {
   is_premium: boolean;
   subscription_end_date?: string;
+  plan_type?: 'monthly' | 'annual' | 'lifetime' | null;
 }
 
 export interface FuncionalidadesPremium {
