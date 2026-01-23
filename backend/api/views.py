@@ -24,7 +24,7 @@ class CancelSubscriptionView(APIView):
 
     def post(self, request):
         """
-        Cancela la suscripción del usuario autenticado.
+        Cancela la suscripción del usuario autenticado en Mercado Pago.
         
         Body opcional:
         {
@@ -55,24 +55,64 @@ class CancelSubscriptionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Aquí iría la lógica para cancelar la suscripción en Mercado Pago
-            # Por ahora, solo desactivamos el premium (esto debería hacerse desde el webhook de MP)
-            # En producción, deberías llamar a la API de MP para cancelar el preapproval
+            # Validar que tenga un preapproval_id
+            if not user.preapproval_id:
+                logger.warning(f'Usuario {user.id} intentó cancelar pero no tiene preapproval_id')
+                return Response(
+                    {'error': 'No se encontró información de suscripción. Contacta con soporte.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
-            logger.info(f'Usuario {user.id} solicitó cancelar suscripción. Plan: {user.plan_type}')
+            # Obtener configuración de Mercado Pago
+            mp_access_token = getattr(settings, 'MP_ACCESS_TOKEN', None)
+            if not mp_access_token:
+                logger.error('MP_ACCESS_TOKEN no está configurado en settings')
+                return Response(
+                    {'error': 'Configuración de pago no disponible'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
-            # Nota: En producción, la cancelación real se haría desde el webhook de MP
-            # cuando el preapproval cambie a estado 'cancelled'
+            sdk = mercadopago.SDK(mp_access_token)
+            
+            # Cancelar el preapproval en Mercado Pago
+            logger.info(f'Cancelando preapproval {user.preapproval_id} para usuario {user.id}')
+            
+            # Actualizar el preapproval a estado 'cancelled'
+            update_data = {
+                "status": "cancelled"
+            }
+            
+            response = sdk.preapproval().update(user.preapproval_id, update_data)
+            
+            # Verificar respuesta de Mercado Pago
+            if response.get('status') not in (200, 201):
+                error_msg = response.get('response', {}).get('message', 'Error desconocido de Mercado Pago')
+                logger.error(f'Error al cancelar preapproval {user.preapproval_id}: {response}')
+                return Response(
+                    {'error': f'Error al cancelar en Mercado Pago: {error_msg}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Si MP confirma la cancelación, actualizar el estado local
+            # NO quitamos es_premium inmediatamente - el usuario mantiene acceso hasta subscription_end_date
+            with transaction.atomic():
+                user.auto_renewal = False
+                user.save(update_fields=['auto_renewal'])
+            
+            logger.info(f'Preapproval {user.preapproval_id} cancelado exitosamente para usuario {user.id}. Auto_renewal desactivado.')
             
             return Response(
-                {'message': 'Solicitud de cancelación recibida. La suscripción se cancelará al final del período actual.'},
+                {
+                    'message': 'Suscripción cancelada exitosamente. Mantendrás acceso Premium hasta el final de tu período pagado.',
+                    'subscription_end_date': user.subscription_end_date.isoformat() if user.subscription_end_date else None
+                },
                 status=status.HTTP_200_OK
             )
             
         except Exception as e:
             logger.exception(f'Error al cancelar suscripción: {str(e)}')
             return Response(
-                {'error': 'Error al procesar la cancelación'},
+                {'error': 'Error al procesar la cancelación. Por favor, intenta nuevamente o contacta con soporte.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -276,7 +316,12 @@ class MercadoPagoWebhookView(APIView):
                 # Activar cuenta premium si está autorizada
                 # Estados válidos: 'pending', 'authorized', 'paused', 'cancelled'
                 if status_preapproval == 'authorized':
+                    # Pasar el resource_id como preapproval_id
+                    preapproval['id'] = resource_id
                     self._activate_premium_user(external_reference, preapproval)
+                elif status_preapproval == 'cancelled':
+                    # Manejar cancelación desde webhook
+                    self._handle_cancellation(external_reference, preapproval)
                 else:
                     logger.info(f'Preapproval {resource_id} en estado {status_preapproval}, no se activa premium')
                 
@@ -336,11 +381,15 @@ class MercadoPagoWebhookView(APIView):
                     # Determinar tipo de plan y calcular fecha de fin de suscripción
                     plan_type = None
                     end_date = None
+                    preapproval_id = None
                     
                     if 'auto_recurring' in payment_data:
                         # Es una suscripción recurrente (monthly o annual)
                         frequency = payment_data['auto_recurring'].get('frequency', 1)
                         frequency_type = payment_data['auto_recurring'].get('frequency_type', 'months')
+                        
+                        # Obtener el ID del preapproval
+                        preapproval_id = payment_data.get('id')
                         
                         if frequency_type == 'months':
                             # Determinar si es monthly (1 mes) o annual (12 meses)
@@ -362,12 +411,17 @@ class MercadoPagoWebhookView(APIView):
                         # Es un pago único (lifetime), no tiene fecha de fin
                         plan_type = 'lifetime'
                         end_date = None
+                        preapproval_id = None
                     
                     # Guardar cambios
                     user.plan_type = plan_type
-                    user.save(update_fields=['es_premium', 'plan_type'])
+                    user.preapproval_id = preapproval_id
+                    user.auto_renewal = True  # Por defecto, las suscripciones se renuevan automáticamente
+                    if end_date:
+                        user.subscription_end_date = end_date.date()
+                    user.save(update_fields=['es_premium', 'plan_type', 'preapproval_id', 'auto_renewal', 'subscription_end_date'])
                     
-                    logger.info(f'Usuario {user_id} activado como premium. Plan: {plan_type}, Fecha fin: {end_date}')
+                    logger.info(f'Usuario {user_id} activado como premium. Plan: {plan_type}, Preapproval ID: {preapproval_id}, Fecha fin: {end_date}')
                     
                 except User.DoesNotExist:
                     logger.error(f'Usuario con id {user_id} no encontrado')
@@ -379,4 +433,43 @@ class MercadoPagoWebhookView(APIView):
             logger.error(f'external_reference inválido: {external_reference}')
         except Exception as e:
             logger.exception(f'Error inesperado al activar usuario premium: {str(e)}')
+    
+    def _handle_cancellation(self, external_reference, preapproval_data):
+        """
+        Maneja la cancelación de una suscripción desde el webhook.
+        
+        Args:
+            external_reference: ID del usuario (string)
+            preapproval_data: Datos del preapproval de Mercado Pago
+        """
+        try:
+            if not external_reference:
+                logger.warning('external_reference vacío, no se puede procesar cancelación')
+                return
+            
+            user_id = int(external_reference)
+            
+            with transaction.atomic():
+                try:
+                    user = User.objects.get(id=user_id)
+                    
+                    # Desactivar renovación automática
+                    user.auto_renewal = False
+                    user.save(update_fields=['auto_renewal'])
+                    
+                    logger.info(f'Usuario {user_id}: Renovación automática desactivada por cancelación. Mantiene acceso hasta {user.subscription_end_date}')
+                    
+                    # NO quitamos es_premium aquí - el usuario mantiene acceso hasta subscription_end_date
+                    # El es_premium se desactivará cuando expire la suscripción (puede hacerse con un task periódico)
+                    
+                except User.DoesNotExist:
+                    logger.error(f'Usuario con id {user_id} no encontrado')
+                except Exception as e:
+                    logger.exception(f'Error al procesar cancelación para usuario {user_id}: {str(e)}')
+                    raise
+                    
+        except ValueError:
+            logger.error(f'external_reference inválido: {external_reference}')
+        except Exception as e:
+            logger.exception(f'Error inesperado al procesar cancelación: {str(e)}')
 

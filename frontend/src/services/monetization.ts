@@ -130,6 +130,17 @@ class MonetizationService {
     });
     return response.init_point;
   }
+
+  /**
+   * Cancelar suscripción premium
+   * @param reason Razón opcional de cancelación
+   * @returns Mensaje de confirmación
+   */
+  async cancelSubscription(reason?: string): Promise<{ message: string; subscription_end_date?: string }> {
+    return await apiService.post<{ message: string; subscription_end_date?: string }>('/premium/cancel/', {
+      reason
+    });
+  }
 }
 
 // Instancia singleton del servicio de monetización

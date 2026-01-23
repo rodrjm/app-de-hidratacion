@@ -704,9 +704,9 @@ const tabs = [
                                 Editar Plan
                               </Button>
                               <Button
-                                variant="outline"
+                                variant="danger"
                                 onClick={() => setShowCancelSubscriptionModal(true)}
-                                className="flex-1 border-error-300 text-error-600 hover:bg-error-50 hover:border-error-400"
+                                className="flex-1"
                               >
                                 Cancelar Suscripción
                               </Button>
@@ -1086,7 +1086,7 @@ const tabs = [
                   </div>
                   
                   <p className="text-neutral-600 mb-4">
-                    Al cancelar, perderás el acceso a las funciones Premium (Meta personalizada, Recordatorios inteligentes, Catálogo Premium, etc.) al final de tu ciclo de facturación actual ({premiumStatus?.subscription_end_date ? new Date(premiumStatus.subscription_end_date).toLocaleDateString('es-ES') : 'N/A'}).
+                    ¿Estás seguro? Perderás los beneficios Premium al finalizar el período actual ({premiumStatus?.subscription_end_date ? new Date(premiumStatus.subscription_end_date).toLocaleDateString('es-ES') : 'N/A'}).
                   </p>
 
                   <div className="mb-4">
@@ -1114,12 +1114,13 @@ const tabs = [
                       Volver / Mantener Suscripción
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="danger"
                       size="sm"
                       onClick={async () => {
                         try {
-                          // Aquí iría la llamada al API para cancelar la suscripción
-                          toast.success('Suscripción cancelada. Tendrás acceso Premium hasta el final de tu ciclo de facturación.');
+                          // Llamar al API para cancelar la suscripción
+                          const result = await monetizationService.cancelSubscription(cancelReason);
+                          toast.success(result.message || 'Suscripción cancelada. Tendrás acceso Premium hasta el final de tu ciclo de facturación.');
                           setShowCancelSubscriptionModal(false);
                           setCancelReason('');
                           // Recargar datos de premium
@@ -1129,11 +1130,11 @@ const tabs = [
                             ]);
                             setPremiumStatus(st);
                           }
-                        } catch (error) {
-                          toast.error('Error al cancelar la suscripción');
+                        } catch (error: unknown) {
+                          const errorMessage = error instanceof Error ? error.message : 'Error al cancelar la suscripción';
+                          toast.error(errorMessage);
                         }
                       }}
-                      className="border-error-300 text-error-600 hover:bg-error-50 hover:border-error-400"
                     >
                       Confirmar Cancelación
                     </Button>

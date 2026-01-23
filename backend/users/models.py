@@ -47,6 +47,24 @@ class User(AbstractUser):
         verbose_name='Tipo de Plan',
         help_text='Tipo de plan premium del usuario (solo para usuarios premium)'
     )
+    preapproval_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='ID de Preapproval',
+        help_text='ID de la suscripción en Mercado Pago (solo para planes recurrentes)'
+    )
+    auto_renewal = models.BooleanField(
+        default=True,
+        verbose_name='Renovación Automática',
+        help_text='Indica si la suscripción se renueva automáticamente'
+    )
+    subscription_end_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de Fin de Suscripción',
+        help_text='Fecha en que termina el período pagado de la suscripción'
+    )
     fecha_nacimiento = models.DateField(
         verbose_name='Fecha de nacimiento',
         help_text='Fecha de nacimiento del usuario',
