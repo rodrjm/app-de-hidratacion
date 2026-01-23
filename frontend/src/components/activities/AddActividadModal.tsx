@@ -47,6 +47,27 @@ const AddActividadModal: React.FC<AddActividadModalProps> = ({ onSubmit, onClose
   const [duracionMinutos, setDuracionMinutos] = useState<number>(
     actividadEditar?.data.duracion_minutos || 30
   );
+  const [fechaHora, setFechaHora] = useState<string>(() => {
+    // Si hay actividad a editar, usar su fecha/hora, sino usar fecha/hora actual
+    if (actividadEditar?.data.fecha_hora) {
+      // Convertir a formato local datetime-local
+      const date = new Date(actividadEditar.data.fecha_hora);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+    // Usar fecha/hora actual en formato local
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSugerirModal, setShowSugerirModal] = useState(false);
@@ -84,6 +105,15 @@ const AddActividadModal: React.FC<AddActividadModalProps> = ({ onSubmit, onClose
     if (!duracionMinutos || duracionMinutos < 1) return 'La duración debe ser al menos 1 minuto';
     if (duracionMinutos > 1440) return 'La duración no puede ser mayor a 1440 minutos (24 horas)';
     if (!intensidad) return 'Selecciona una intensidad';
+    if (!fechaHora) return 'Selecciona la fecha y hora de inicio de la actividad';
+    
+    // Validar que la fecha no sea futura
+    const selectedDate = new Date(fechaHora);
+    const now = new Date();
+    if (selectedDate > now) {
+      return 'La fecha y hora no puede ser futura';
+    }
+    
     return null;
   };
 
@@ -93,10 +123,14 @@ const AddActividadModal: React.FC<AddActividadModalProps> = ({ onSubmit, onClose
     setIsSubmitting(true);
     setError(null);
     try {
+      // Convertir fechaHora a ISO string para enviar al backend
+      const fechaHoraISO = new Date(fechaHora).toISOString();
+      
       await onSubmit({ 
         tipo_actividad: tipoActividad as ActividadForm['tipo_actividad'],
         duracion_minutos: duracionMinutos,
-        intensidad: intensidad as ActividadForm['intensidad']
+        intensidad: intensidad as ActividadForm['intensidad'],
+        fecha_hora: fechaHoraISO
       });
       // El toast se mostrará desde el componente padre (Dashboard)
       onClose();
@@ -189,6 +223,25 @@ const AddActividadModal: React.FC<AddActividadModalProps> = ({ onSubmit, onClose
                 </svg>
               </div>
             </div>
+          </div>
+
+          {/* Fecha y Hora de Inicio */}
+          <div>
+            <label className="block text-sm font-display font-medium text-neutral-700 mb-2" htmlFor="fecha-hora-input">
+              Fecha y Hora de Inicio <span className="text-error-600">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              id="fecha-hora-input"
+              value={fechaHora}
+              onChange={(e) => setFechaHora(e.target.value)}
+              max={new Date().toISOString().slice(0, 16)} // No permitir fechas futuras
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-500"
+              required
+            />
+            <p className="text-xs text-neutral-500 mt-1">
+              Selecciona cuándo comenzó la actividad
+            </p>
           </div>
 
           {/* Duración con Input Numérico y Spinner */}

@@ -58,6 +58,45 @@ const Dashboard: React.FC = () => {
   // Ref para rastrear si ya se cargaron los datos iniciales
   const hasLoadedInitialDataRef = useRef<boolean>(false);
   const lastUserIdRef = useRef<number | null>(null);
+  
+  // Estado para coordenadas de ubicación
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(() => {
+    // Intentar cargar desde localStorage
+    const saved = localStorage.getItem('user_location');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  // Pedir permisos de ubicación al cargar Dashboard
+  useEffect(() => {
+    if (!userLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          };
+          setUserLocation(location);
+          localStorage.setItem('user_location', JSON.stringify(location));
+        },
+        (error) => {
+          console.warn('Error al obtener ubicación:', error);
+          // No mostrar error al usuario, simplemente no usar datos climáticos
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 3600000 // Cachear por 1 hora
+        }
+      );
+    }
+  }, [userLocation]);
 
   useEffect(() => {
     // Cargar datos iniciales solo una vez
@@ -163,41 +202,52 @@ const Dashboard: React.FC = () => {
   // Memoizar handlers para evitar re-renders innecesarios
   const handleAddActividad = useCallback(async (data: ActividadForm) => {
     try {
-      // Calcular PSE estimado para el toast
-      const tsBaseMap: Record<string, number> = {
-        'correr': 20.0, 'ciclismo': 18.3, 'natacion': 13.3, 'futbol_rugby': 23.3,
-        'baloncesto_voley': 20.0, 'gimnasio': 13.3, 'crossfit_hiit': 25.0,
-        'padel_tenis': 16.7, 'baile_aerobico': 15.0, 'caminata_rapida': 8.3,
-        'pilates': 6.7, 'caminata': 4.2, 'yoga_hatha': 5.0, 'yoga_bikram': 25.0,
-      };
-      const factorIntensidadMap: Record<string, number> = {
-        'baja': 0.8, 'media': 1.0, 'alta': 1.2,
-      };
-      const tsBase = tsBaseMap[data.tipo_actividad] || 13.3;
-      const factorIntensidad = factorIntensidadMap[data.intensidad] || 1.0;
-      const pseEstimado = Math.round(data.duracion_minutos * tsBase * factorIntensidad);
-
+      // Preparar datos con coordenadas si están disponibles
+      const actividadData: any = { ...data };
+      if (userLocation) {
+        actividadData.latitude = userLocation.lat;
+        actividadData.longitude = userLocation.lon;
+      }
+      
       if (actividadEditar) {
-        await updateActividad(actividadEditar.id, data);
-        toast.success('Actividad actualizada exitosamente');
+        const result = await updateActividad(actividadEditar.id, actividadData);
+        
+        // Mostrar mensaje climático si está disponible
+        if (result && (result as any).weather_message && (result as any).climate_adjustment) {
+          const adjustment = (result as any).climate_adjustment;
+          toast.success(
+            `${(result as any).weather_message} Se ajustó tu meta ${adjustment}.`,
+            { duration: 6000 }
+          );
+        } else {
+          toast.success('Actividad actualizada exitosamente');
+        }
+        
         setActividadEditar(undefined);
       } else {
-        await addActividad(data);
-        toast.success(`¡Listo! Meta diaria ajustada en +${pseEstimado}ml.`, {
-          duration: 4000,
-          icon: '💪',
-        });
+        const result = await addActividad(actividadData);
+        
+        // Mostrar mensaje climático si está disponible
+        if (result && (result as any).weather_message && (result as any).climate_adjustment) {
+          const adjustment = (result as any).climate_adjustment;
+          toast.success(
+            `${(result as any).weather_message} Se ajustó tu meta ${adjustment}.`,
+            { duration: 6000 }
+          );
+        } else {
+          toast.success('Actividad registrada exitosamente');
+        }
       }
-      // Refrescar actividades del día
+      
       await fetchActividadesHoy();
       const hoy = formatLocalDate(new Date());
-      await fetchEstadisticas(hoy); // Actualizar estadísticas con fecha local para reflejar nueva meta
+      await fetchEstadisticas(hoy);
       setShowAddActividadModal(false);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error al registrar actividad';
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Error al registrar actividad';
+      toast.error(msg);
     }
-  }, [actividadEditar, addActividad, updateActividad, fetchActividadesHoy, fetchEstadisticas]);
+  }, [actividadEditar, addActividad, updateActividad, fetchActividadesHoy, fetchEstadisticas, userLocation]);
 
   const handleEditActividad = useCallback((actividad: Actividad) => {
     setActividadEditar({
@@ -205,7 +255,8 @@ const Dashboard: React.FC = () => {
       data: {
         tipo_actividad: actividad.tipo_actividad,
         duracion_minutos: actividad.duracion_minutos,
-        intensidad: actividad.intensidad
+        intensidad: actividad.intensidad,
+        fecha_hora: actividad.fecha_hora
       }
     });
     setShowAddActividadModal(true);
