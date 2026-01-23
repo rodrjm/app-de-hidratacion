@@ -26,6 +26,8 @@ const Recipientes = lazyWithRetry(() => import('@/pages/Recipientes'));
 const Recordatorios = lazyWithRetry(() => import('@/pages/Recordatorios'));
 const Premium = lazyWithRetry(() => import('@/pages/Premium'));
 const Bebidas = lazyWithRetry(() => import('@/pages/Bebidas'));
+const TermsAndConditions = lazyWithRetry(() => import('@/pages/TermsAndConditions'));
+const PrivacyPolicy = lazyWithRetry(() => import('@/pages/PrivacyPolicy'));
 
 const App: React.FC = () => {
   console.log('App.tsx: Component rendering');
@@ -104,6 +106,14 @@ const App: React.FC = () => {
               element={
                 isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />
               } 
+            />
+            <Route 
+              path="/terms" 
+              element={<TermsAndConditions />} 
+            />
+            <Route 
+              path="/privacy" 
+              element={<PrivacyPolicy />} 
             />
             <Route 
               path="/onboarding" 

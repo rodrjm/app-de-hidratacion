@@ -47,7 +47,7 @@ export const actividadesService = {
   /**
    * Crea una nueva actividad
    */
-  async createActividad(data: ActividadForm): Promise<Actividad> {
+  async createActividad(data: ActividadForm & { latitude?: number; longitude?: number }): Promise<Actividad> {
     const response = await apiService.post<Actividad>('/actividades/', data);
     return response;
   },
@@ -55,7 +55,7 @@ export const actividadesService = {
   /**
    * Actualiza una actividad existente
    */
-  async updateActividad(id: number, data: Partial<ActividadForm>): Promise<Actividad> {
+  async updateActividad(id: number, data: Partial<ActividadForm> & { latitude?: number; longitude?: number }): Promise<Actividad> {
     const response = await apiService.put<Actividad>(`/actividades/${id}/`, data);
     return response;
   },

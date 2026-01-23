@@ -240,11 +240,43 @@ class UserSerializer(serializers.ModelSerializer):
         """Indica si el usuario ha tenido actividad hoy."""
         return obj.es_usuario_activo_hoy()
     
+    def _check_and_update_expired_subscription(self, instance):
+        """
+        Verifica si la suscripción del usuario ha expirado y la desactiva si es necesario.
+        Esta es una verificación "just-in-time" que garantiza que nunca se devuelvan
+        datos premium a usuarios cuya suscripción ya expiró, incluso si el comando
+        programado no se ha ejecutado aún.
+        """
+        from django.utils import timezone
+        
+        # Solo verificar si el usuario es premium y tiene subscription_end_date
+        if instance.es_premium and instance.subscription_end_date:
+            now = timezone.now().date()
+            
+            # Si la fecha de expiración es menor a hoy, desactivar premium
+            if instance.subscription_end_date < now:
+                instance.es_premium = False
+                instance.preapproval_id = None
+                instance.save(update_fields=['es_premium', 'preapproval_id'])
+                
+                # Log para debugging (opcional, puede comentarse en producción)
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f'Usuario {instance.id} ({instance.username}) desactivado automáticamente: '
+                    f'suscripción expirada el {instance.subscription_end_date}'
+                )
+    
     def to_representation(self, instance):
         """
         Asegura que la meta diaria enviada al frontend esté siempre calculada
         con la fórmula más reciente, evitando valores almacenados obsoletos.
+        También verifica y actualiza el estado premium si la suscripción ha expirado.
         """
+        # Verificación just-in-time: si el usuario es premium pero su suscripción expiró,
+        # desactivarlo inmediatamente antes de devolver los datos
+        self._check_and_update_expired_subscription(instance)
+        
         data = super().to_representation(instance)
         meta_segura = self._get_meta_segura(instance)
         data['meta_diaria_ml'] = meta_segura

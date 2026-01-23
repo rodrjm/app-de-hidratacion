@@ -463,22 +463,34 @@ const Register: React.FC = () => {
                 id="acceptTerms"
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-1"
                 {...register('acceptTerms', {
-                  required: 'Debes aceptar los términos y condiciones'
+                  required: 'Debes aceptar los términos y condiciones y la política de privacidad para continuar'
                 })}
               />
               <label htmlFor="acceptTerms" className="ml-2 text-sm text-gray-600">
                 Acepto los{' '}
-                <Link to="/terms" className="text-primary-600 hover:text-primary-500">
+                <Link 
+                  to="/terms" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-500 underline font-medium"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   términos y condiciones
                 </Link>{' '}
                 y la{' '}
-                <Link to="/privacy" className="text-primary-600 hover:text-primary-500">
+                <Link 
+                  to="/privacy" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-500 underline font-medium"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   política de privacidad
                 </Link>
               </label>
             </div>
             {errors.acceptTerms && (
-              <p className="text-sm text-red-600">{errors.acceptTerms.message}</p>
+              <p className="text-sm text-red-600 mt-1">{errors.acceptTerms.message}</p>
             )}
 
             <Button
@@ -486,8 +498,8 @@ const Register: React.FC = () => {
               variant="primary"
               size="lg"
               loading={isLoading}
-              disabled={isLoading || emailAvailable === false}
-              className="w-full bg-secondary-600 hover:bg-secondary-700 text-white font-display font-bold"
+              disabled={isLoading || emailAvailable === false || !watch('acceptTerms')}
+              className="w-full bg-secondary-600 hover:bg-secondary-700 text-white font-display font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
             </Button>

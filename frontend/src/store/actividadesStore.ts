@@ -20,7 +20,7 @@ interface ActividadesActions {
   }) => Promise<void>;
   fetchActividadesHoy: () => Promise<void>;
   addActividad: (actividad: ActividadForm) => Promise<Actividad>;
-  updateActividad: (id: number, actividad: Partial<ActividadForm>) => Promise<void>;
+  updateActividad: (id: number, actividad: Partial<ActividadForm>) => Promise<Actividad>;
   deleteActividad: (id: number) => Promise<void>;
   clearError: () => void;
 }
@@ -100,7 +100,7 @@ export const useActividadesStore = create<ActividadesStore>((set, get) => ({
   updateActividad: async (id, actividad) => {
     set({ isLoading: true, error: null });
     try {
-      await actividadesService.updateActividad(id, actividad);
+      const actividadActualizada = await actividadesService.updateActividad(id, actividad);
       
       // Actualizar lista
       await get().fetchActividadesHoy();
@@ -108,6 +108,8 @@ export const useActividadesStore = create<ActividadesStore>((set, get) => ({
       // Actualizar usuario para reflejar nueva meta
       const { refreshUser } = useAuthStore.getState();
       await refreshUser();
+      
+      return actividadActualizada;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error al actualizar actividad';
       set({ error: errorMessage, isLoading: false });
