@@ -8,7 +8,6 @@ import Skeleton from '@/components/ui/Skeleton';
 import Button from '@/components/ui/Button';
 import { exportService } from '@/services/export';
 import { toast } from 'react-hot-toast';
-import { consumosService } from '@/services/consumos';
 import { Consumo } from '@/types';
 import PageHeader from '@/components/layout/PageHeader';
 
@@ -19,11 +18,13 @@ const Statistics: React.FC = () => {
     estadisticas,
     tendencias,
     insights,
+    consumos,
     isLoading,
     error,
     fetchEstadisticas,
     fetchTendencias,
-    fetchInsights
+    fetchInsights,
+    fetchConsumos
   } = useConsumosStore();
 
   const [selectedPeriod, setSelectedPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'annual'>('daily');
@@ -102,23 +103,23 @@ const Statistics: React.FC = () => {
       fetchInsights(30);
     }
     
-    // Cargar consumos según el período seleccionado
+    // Cargar consumos según el período seleccionado usando el store
     const { fechaInicio, fechaFin } = getPeriodDates(selectedPeriod);
-    consumosService.getConsumos(1, 1000, { fecha_inicio: fechaInicio, fecha_fin: fechaFin })
-      .then(resp => {
-        const consumos = resp.results || [];
+    fetchConsumos(1, { fecha_inicio: fechaInicio, fecha_fin: fechaFin })
+      .then(() => {
+        // Obtener consumos del store después de cargarlos
+        const storeConsumos = useConsumosStore.getState().consumos;
         // Filtro defensivo en el cliente para evitar arrastre de otro día si el backend trae fuera de rango
-        let filtered = consumos;
+        let filtered = storeConsumos;
         if (selectedPeriod === 'daily') {
           const todayLocal = formatLocalDate(new Date());
-          filtered = consumos.filter((c: any) => {
+          filtered = storeConsumos.filter((c: Consumo) => {
             const d = new Date(c.fecha_hora);
             const localStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             return localStr === todayLocal;
           });
         }
-        console.log(`[Statistics] Cargados ${consumos.length} consumos para período ${selectedPeriod} (${fechaInicio} a ${fechaFin})`);
-        console.log('[Statistics] Primeros consumos:', consumos.slice(0, 3));
+        console.log(`[Statistics] Cargados ${storeConsumos.length} consumos para período ${selectedPeriod} (${fechaInicio} a ${fechaFin})`);
         if (selectedPeriod === 'daily') {
           console.log(`[Statistics] Filtrados por día local (${formatLocalDate(new Date())}):`, filtered.length);
         }
@@ -128,7 +129,7 @@ const Statistics: React.FC = () => {
         console.error('[Statistics] Error al cargar consumos:', error);
         setPeriodConsumos([]);
       });
-  }, [fetchEstadisticas, fetchTendencias, fetchInsights, user?.es_premium, selectedPeriod]);
+  }, [fetchEstadisticas, fetchTendencias, fetchInsights, fetchConsumos, user?.es_premium, selectedPeriod]);
 
   const handlePeriodChange = (period: 'daily' | 'weekly' | 'monthly' | 'annual') => {
     setSelectedPeriod(period);
