@@ -13,17 +13,23 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
+# SECRET_KEY debe estar configurado como variable de entorno en producción
+# No usar defaults inseguros - forzar configuración explícita
+SECRET_KEY = config('SECRET_KEY', default=None)
 
-# Validar SECRET_KEY en producción
-if not SECRET_KEY or SECRET_KEY == 'django-insecure-change-this-in-production':
-    # Permitir solo en desarrollo (DEBUG=True)
-    DEBUG_MODE = config('DEBUG', default=True, cast=bool)
-    if not DEBUG_MODE:
+# Validar SECRET_KEY - requerido en producción, opcional solo en desarrollo
+if not SECRET_KEY:
+    # Permitir solo en desarrollo (DEBUG=True) o durante tests
+    DEBUG_MODE = config('DEBUG', default=False, cast=bool)
+    is_testing = 'test' in sys.argv or 'pytest' in sys.modules or 'DJANGO_SETTINGS_MODULE' in os.environ and 'sqlite' in os.environ.get('DJANGO_SETTINGS_MODULE', '')
+    
+    if not DEBUG_MODE and not is_testing:
         raise ImproperlyConfigured(
             'SECRET_KEY debe estar configurado en producción. '
             'Configure la variable de entorno SECRET_KEY con un valor seguro.'
         )
+    # Solo en desarrollo/testing, usar un valor temporal
+    SECRET_KEY = 'django-insecure-dev-only-change-in-production'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
