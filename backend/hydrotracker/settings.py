@@ -113,19 +113,60 @@ TEMPLATES = [
 WSGI_APPLICATION = 'hydrotracker.wsgi.application'
 
 # Database - Configuración consciente del entorno
-# Prioridad: DATABASE_URL (Render/Heroku) > DB_HOST (Docker) > SQLite (local)
+# Prioridad: DATABASE_URL (Neon/Render/Heroku) > DB_HOST (Docker) > SQLite (local)
 DATABASE_URL = config('DATABASE_URL', default=None)
 DB_HOST = config('DB_HOST', default=None)
 
 # Validar que DATABASE_URL no esté vacío y sea válido
 if DATABASE_URL and DATABASE_URL.strip():
-    # MODO RENDER/HEROKU (usa DATABASE_URL)
+    # MODO PRODUCCIÓN (Neon/Render/Heroku) - usa DATABASE_URL
     try:
+        # Parsear la URL de la base de datos
+        db_config = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+        
+        # Detectar si es una conexión PostgreSQL (no SQLite)
+        is_postgres = db_config.get('ENGINE') == 'django.db.backends.postgresql' or \
+                     'postgres' in DATABASE_URL.lower() or \
+                     'neon' in DATABASE_URL.lower()
+        
+        # Forzar SSL para PostgreSQL en producción (requerido por Neon.tech)
+        if is_postgres:
+            # Asegurar que OPTIONS existe
+            if 'OPTIONS' not in db_config:
+                db_config['OPTIONS'] = {}
+            
+            # Configurar SSL - Neon.tech requiere SSL obligatoriamente
+            # Si la URL ya tiene sslmode, respetarlo; si no, agregar require
+            if 'sslmode' not in db_config.get('OPTIONS', {}):
+                # Verificar si la URL ya tiene parámetros SSL
+                if '?sslmode=' not in DATABASE_URL and '&sslmode=' not in DATABASE_URL:
+                    # Agregar sslmode=require si no está presente
+                    db_config['OPTIONS']['sslmode'] = 'require'
+                else:
+                    # Extraer sslmode de la URL si está presente
+                    import urllib.parse as urlparse
+                    parsed = urlparse.urlparse(DATABASE_URL)
+                    query_params = urlparse.parse_qs(parsed.query)
+                    if 'sslmode' in query_params:
+                        db_config['OPTIONS']['sslmode'] = query_params['sslmode'][0]
+                    else:
+                        db_config['OPTIONS']['sslmode'] = 'require'
+            
+            # Configuraciones adicionales recomendadas para Neon
+            db_config['OPTIONS']['connect_timeout'] = 10
+            db_config['OPTIONS']['keepalives'] = 1
+            db_config['OPTIONS']['keepalives_idle'] = 30
+            db_config['OPTIONS']['keepalives_interval'] = 10
+            db_config['OPTIONS']['keepalives_count'] = 5
+        
         DATABASES = {
-            'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+            'default': db_config
         }
-    except (ValueError, Exception):
-        # Si DATABASE_URL es inválido, usar fallback
+    except (ValueError, Exception) as e:
+        # Si DATABASE_URL es inválido, registrar error y usar fallback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error al parsear DATABASE_URL: {str(e)}')
         DATABASE_URL = None
 
 # Si DATABASE_URL no está disponible o es inválido, intentar DB_HOST
@@ -140,15 +181,26 @@ if not DATABASE_URL or (isinstance(DATABASE_URL, str) and not DATABASE_URL.strip
     if (DB_HOST and DB_HOST != 'db' and 
         db_name and db_user and db_password):
         # MODO DOCKER/PRODUCCIÓN (PostgreSQL con variables individuales)
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': db_name,
-                'USER': db_user,
-                'PASSWORD': db_password,
-                'HOST': DB_HOST,
-                'PORT': config('DB_PORT', default='5432'),
+        # Nota: Si DB_HOST apunta a Neon, asegurar SSL
+        db_config = {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': db_name,
+            'USER': db_user,
+            'PASSWORD': db_password,
+            'HOST': DB_HOST,
+            'PORT': config('DB_PORT', default='5432'),
+        }
+        
+        # Si es producción (no localhost), forzar SSL
+        is_production = not DEBUG and DB_HOST not in ('localhost', '127.0.0.1', 'db')
+        if is_production or 'neon' in DB_HOST.lower():
+            db_config['OPTIONS'] = {
+                'sslmode': 'require',
+                'connect_timeout': 10,
             }
+        
+        DATABASES = {
+            'default': db_config
         }
     else:
         # MODO LOCAL (SQLite) - fallback cuando no hay DATABASE_URL ni DB_HOST válido
