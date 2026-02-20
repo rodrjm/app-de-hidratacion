@@ -132,9 +132,11 @@ class AuthService {
         }
       };
       
-      // Guardar tokens en sessionStorage (más seguro que localStorage)
+      // Guardar tokens - usar localStorage por defecto en registro (similar a login con rememberMe)
+      // Esto asegura que los tokens persistan en apps móviles
       apiService.setToken(registerResponse.tokens.access);
-      sessionStorage.setItem('refresh_token', registerResponse.tokens.refresh);
+      localStorage.setItem('refresh_token', registerResponse.tokens.refresh);
+      localStorage.setItem('rememberMe', 'true'); // Por defecto, recordar usuario nuevo
       
       return registerResponse;
     } catch (error) {
@@ -331,9 +333,11 @@ class AuthService {
         credential
       });
       
-      // Guardar tokens en sessionStorage (más seguro que localStorage)
+      // Guardar tokens - usar localStorage para persistencia en apps móviles
+      // Esto asegura que la sesión persista incluso después de cerrar la app
       apiService.setToken(response.access);
-      sessionStorage.setItem('refresh_token', response.refresh);
+      localStorage.setItem('refresh_token', response.refresh);
+      localStorage.setItem('rememberMe', 'true'); // Google login siempre recuerda
       
       return {
         user: response.user,

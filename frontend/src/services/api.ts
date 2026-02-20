@@ -75,6 +75,7 @@ class ApiService {
     ];
     
     // Interceptor de request
+    // CRÍTICO para apps móviles: Agregar token en header Authorization (no cookies)
     this.api.interceptors.request.use(
       (config) => {
         // Solo agregar token si no es un endpoint público
@@ -82,9 +83,18 @@ class ApiService {
           config.url?.includes(endpoint)
         );
         
-        if (this.token && !isPublicEndpoint) {
-          config.headers.Authorization = `Bearer ${this.token}`;
+        // Obtener token actualizado (puede haber cambiado desde la última petición)
+        const currentToken = this.getToken();
+        
+        if (currentToken && !isPublicEndpoint) {
+          // Usar Bearer token en header Authorization (requerido para apps móviles)
+          // Las cookies no funcionan en capacitor:// o file://
+          config.headers.Authorization = `Bearer ${currentToken}`;
         }
+        
+        // Asegurar que no se envíen cookies (no funcionan en apps móviles)
+        config.withCredentials = false;
+        
         return config;
       },
       (error) => {
@@ -151,7 +161,8 @@ class ApiService {
 
   private loadTokenFromStorage() {
     // Buscar token en ambos storages para asegurar que se encuentre
-    // Primero verificar localStorage (para usuarios con "Recordarme")
+    // Prioridad: localStorage (para usuarios con "Recordarme") > sessionStorage
+    // Esto funciona tanto en web como en apps móviles (Capacitor)
     let token = localStorage.getItem('access_token');
     
     // Si no hay token en localStorage, buscar en sessionStorage
@@ -167,6 +178,8 @@ class ApiService {
     
     if (token) {
       this.token = token;
+      // Asegurar que el token se agregue a las peticiones automáticamente
+      // Esto es crítico para apps móviles donde no hay cookies
     }
   }
 

@@ -140,6 +140,14 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
         """
         serializer.save(usuario=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        """
+        Actualización parcial: permite PUT con solo los campos enviados.
+        Así el cliente puede enviar solo bebida, cantidad_ml, recipiente y fecha_hora.
+        """
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
+
     @action(detail=False, methods=['get'])
     def daily_summary(self, request):
         """

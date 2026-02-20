@@ -38,11 +38,14 @@ class SubscriptionStatusView(APIView):
         
         # Obtener tipo de plan
         plan_type = getattr(user, 'plan_type', None) if is_premium else None
+        # Renovación automática (False = usuario ya solicitó cancelar, mantiene acceso hasta subscription_end_date)
+        auto_renewal = getattr(user, 'auto_renewal', True) if is_premium else None
         
         data = {
             'is_premium': is_premium,
             'subscription_end_date': subscription_end_date,
-            'plan_type': plan_type
+            'plan_type': plan_type,
+            'auto_renewal': auto_renewal
         }
         
         serializer = SubscriptionStatusSerializer(data)

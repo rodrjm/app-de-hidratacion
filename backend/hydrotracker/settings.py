@@ -258,8 +258,11 @@ USE_REDIS = REDIS_URL and REDIS_URL.strip() and not REDIS_URL.startswith('dummy:
 
 # Django REST Framework
 REST_FRAMEWORK = {
+    # Autenticación híbrida: JWT para apps móviles (prioridad) y Session para web/admin
+    # JWT tiene prioridad porque se verifica primero y funciona mejor en entornos móviles
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Prioridad: Apps móviles (Capacitor)
+        'rest_framework.authentication.SessionAuthentication',  # Respaldo: Web/Admin
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -323,12 +326,24 @@ SIMPLE_JWT = {
 }
 
 # CORS settings - Configurable desde variables de entorno
-# Incluir URLs de desarrollo y producción
+# Incluir URLs de desarrollo, producción y Capacitor (App Móvil)
 CORS_ALLOWED_ORIGINS_STR = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,https://dosis-vital.onrender.com,https://dosis-vital-ahxj.onrender.com'
+    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://192.168.0.26:8000,https://dosis-vital.onrender.com,https://dosis-vital-ahxj.onrender.com'
 )
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
+
+# Orígenes específicos de Capacitor (Apps Móviles)
+# capacitor://localhost es el esquema usado en iOS
+# http://localhost es usado en Android
+CAPACITOR_ORIGINS = [
+    'capacitor://localhost',
+    'http://localhost',
+    'ionic://localhost',
+]
+
+# Combinar orígenes web y móviles
+CORS_ALLOWED_ORIGINS.extend(CAPACITOR_ORIGINS)
 
 CORS_ALLOW_CREDENTIALS = True
 

@@ -28,28 +28,22 @@ class RecipienteViewSet(BaseViewSet, StatsMixin, FilterMixin):
 
     def list(self, request, *args, **kwargs):
         """
-        Lista los recipientes del usuario, asegurando que existan los por defecto.
+        Lista los recipientes del usuario, asegurando que existan los por defecto (Vaso 250ml, Botella 500ml).
+        Migra nombres antiguos (Taza/Vaso, Botella/Termo pequeño) a Vaso/Botella.
         """
         user = request.user
-        
-        # Asegurar que siempre existan los recipientes por defecto (solo una vez)
-        nombres_defecto = ['Taza/Vaso', 'Botella/Termo pequeño']
-        cantidades_defecto = [250, 500]
-        colores_defecto = ['#3B82F6', '#10B981']
-        iconos_defecto = ['cup', 'bottle']
-        
-        for nombre, cantidad, color, icono in zip(nombres_defecto, cantidades_defecto, colores_defecto, iconos_defecto):
-            Recipiente.objects.get_or_create(
-                usuario=user,
-                nombre=nombre,
-                defaults={
-                    'cantidad_ml': cantidad,
-                    'color': color,
-                    'icono': icono,
-                    'es_favorito': True
-                }
-            )
-        
+        Recipiente.objects.filter(usuario=user, nombre='Taza/Vaso').update(nombre='Vaso')
+        Recipiente.objects.filter(usuario=user, nombre='Botella/Termo pequeño').update(nombre='Botella')
+        Recipiente.objects.get_or_create(
+            usuario=user,
+            nombre='Vaso',
+            defaults={'cantidad_ml': 250, 'color': '#3B82F6', 'icono': 'cup', 'es_favorito': True}
+        )
+        Recipiente.objects.get_or_create(
+            usuario=user,
+            nombre='Botella',
+            defaults={'cantidad_ml': 500, 'color': '#10B981', 'icono': 'bottle', 'es_favorito': True}
+        )
         return super().list(request, *args, **kwargs)
     
     def get_queryset(self):
@@ -76,19 +70,30 @@ class RecipienteViewSet(BaseViewSet, StatsMixin, FilterMixin):
         # Continuar con la creación normal
         return super().create(request, *args, **kwargs)
     
+    def update(self, request, *args, **kwargs):
+        """
+        Previene editar los recipientes por defecto (250ml y 500ml).
+        """
+        instance = self.get_object()
+        if instance.cantidad_ml in (250, 500):
+            return Response({
+                'error': 'No puedes editar los recipientes por defecto (Vaso y Botella).',
+                'detail': 'Recipiente por defecto no editable'
+            }, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         """
         Previene eliminar los recipientes por defecto (250ml y 500ml) para TODOS los usuarios.
-        Los recipientes por defecto deben estar siempre disponibles tanto para free como premium.
         """
         instance = self.get_object()
-        
-        # Los nombres por defecto que NO se pueden eliminar
-        nombres_defecto = ['Taza/Vaso', 'Botella/Termo pequeño']
-        if instance.nombre in nombres_defecto:
+        if instance.cantidad_ml in (250, 500):
             return Response({
-                'error': 'No puedes eliminar los recipientes por defecto. Estos recipientes siempre están disponibles para todos los usuarios.',
+                'error': 'No puedes eliminar los recipientes por defecto (Vaso y Botella).',
                 'detail': 'Recipiente por defecto no se puede eliminar'
             }, status=status.HTTP_403_FORBIDDEN)
-        
         return super().destroy(request, *args, **kwargs)
