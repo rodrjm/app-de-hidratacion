@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     RegisterView, CustomTokenObtainPairView, LogoutView,
-    UserProfileView, ChangePasswordView, UserStatsView,
+    UserProfileView, ChangePasswordView, DeleteAccountView, UserStatsView,
     CheckUsernameView, CheckEmailView, SugerenciaCreateView, FeedbackCreateView,
     ReferidosInfoView, ReclamarRecompensaReferidoView, GoogleAuthView
 )
@@ -20,6 +20,7 @@ urlpatterns = [
     # Perfil de usuario
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
+    path('delete-account/', DeleteAccountView.as_view(), name='delete_account'),
     path('stats/', UserStatsView.as_view(), name='stats'),
     
     # Validaciones

@@ -63,6 +63,20 @@ class CancelSubscriptionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Suscripciones de prueba (preapproval_id que empieza por "test_"): solo actualizar estado local
+            if user.preapproval_id.strip().lower().startswith('test_'):
+                with transaction.atomic():
+                    user.auto_renewal = False
+                    user.save(update_fields=['auto_renewal'])
+                logger.info(f'Usuario {user.id}: suscripción de prueba cancelada (preapproval_id={user.preapproval_id})')
+                return Response(
+                    {
+                        'message': 'Suscripción cancelada exitosamente. Mantendrás acceso Premium hasta el final de tu período pagado.',
+                        'subscription_end_date': user.subscription_end_date.isoformat() if user.subscription_end_date else None
+                    },
+                    status=status.HTTP_200_OK
+                )
+            
             # Obtener configuración de Mercado Pago
             mp_access_token = getattr(settings, 'MP_ACCESS_TOKEN', None)
             if not mp_access_token:
@@ -117,6 +131,92 @@ class CancelSubscriptionView(APIView):
             )
 
 logger = logging.getLogger(__name__)
+
+
+class ReactivateSubscriptionView(APIView):
+    """
+    Vista para reactivar la renovación automática de una suscripción
+    cuyo usuario había solicitado cancelación (auto_renewal=False).
+    Solo aplica mientras la suscripción sigue activa (antes de subscription_end_date).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Reactiva la renovación automática. En suscripciones de prueba solo actualiza estado local.
+        En Mercado Pago intenta volver a poner el preapproval en estado authorized (si la API lo permite).
+        """
+        try:
+            user = request.user
+
+            if not user.es_premium:
+                return Response(
+                    {'error': 'No tienes una suscripción activa.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if user.plan_type == 'lifetime':
+                return Response(
+                    {'error': 'Los planes vitalicios no tienen renovación.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if not user.preapproval_id:
+                return Response(
+                    {'error': 'No se encontró información de suscripción para reactivar.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if user.auto_renewal:
+                return Response(
+                    {'message': 'Tu suscripción ya está activa y se renovará automáticamente.'},
+                    status=status.HTTP_200_OK
+                )
+
+            # Suscripciones de prueba: solo reactivar localmente
+            if user.preapproval_id.strip().lower().startswith('test_'):
+                with transaction.atomic():
+                    user.auto_renewal = True
+                    user.save(update_fields=['auto_renewal'])
+                logger.info(f'Usuario {user.id}: suscripción de prueba reactivada (preapproval_id={user.preapproval_id})')
+                return Response(
+                    {'message': 'Has vuelto a activar tu suscripción. Se renovará automáticamente.'},
+                    status=status.HTTP_200_OK
+                )
+
+            # Mercado Pago: intentar reactivar el preapproval (status authorized)
+            mp_access_token = getattr(settings, 'MP_ACCESS_TOKEN', None)
+            if not mp_access_token:
+                return Response(
+                    {'error': 'Configuración de pago no disponible.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            sdk = mercadopago.SDK(mp_access_token)
+            update_data = {"status": "authorized"}
+            response = sdk.preapproval().update(user.preapproval_id, update_data)
+
+            if response.get('status') not in (200, 201):
+                error_msg = response.get('response', {}).get('message', '')
+                logger.warning(f'MP no permitió reactivar preapproval {user.preapproval_id}: {response}')
+                return Response(
+                    {
+                        'error': 'No es posible reactivar esta suscripción en la pasarela de pagos. '
+                                 'Puedes volver a suscribirte cuando finalice tu período actual.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            with transaction.atomic():
+                user.auto_renewal = True
+                user.save(update_fields=['auto_renewal'])
+            logger.info(f'Preapproval {user.preapproval_id} reactivado para usuario {user.id}')
+            return Response(
+                {'message': 'Has vuelto a activar tu suscripción. Se renovará automáticamente.'},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.exception(f'Error al reactivar suscripción: {str(e)}')
+            return Response(
+                {'error': 'Error al procesar la reactivación. Intenta de nuevo o contacta con soporte.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class CreateSubscriptionView(APIView):
@@ -199,7 +299,13 @@ class CreateSubscriptionView(APIView):
                 if response["status"] == 201:
                     return Response({"init_point": response["response"]["init_point"]})
                 else:
-                    return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
+                    mp_resp = response.get("response", {})
+                    err_msg = (
+                        mp_resp.get("message")
+                        or (mp_resp.get("cause", [{}])[0].get("description") if isinstance(mp_resp.get("cause"), list) else None)
+                        or "Error de Mercado Pago. En entorno local verifica MP_ACCESS_TOKEN y las URLs (FRONTEND_URL, BACKEND_URL)."
+                    )
+                    return Response({"error": err_msg}, status=status.HTTP_400_BAD_REQUEST)
 
             # ----------------------------------------
             # CASO B: SUSCRIPCIÓN (MENSUAL/ANUAL)
@@ -238,8 +344,14 @@ class CreateSubscriptionView(APIView):
                 if response["status"] == 201:
                     return Response({"init_point": response["response"]["init_point"]})
                 else:
-                    print("❌ Error MP Preapproval:", response)
-                    return Response(response["response"], status=status.HTTP_400_BAD_REQUEST)
+                    mp_resp = response.get("response", {})
+                    err_msg = (
+                        mp_resp.get("message")
+                        or (mp_resp.get("cause", [{}])[0].get("description") if isinstance(mp_resp.get("cause"), list) else None)
+                        or "Error de Mercado Pago. En entorno local verifica MP_ACCESS_TOKEN y las URLs (FRONTEND_URL, BACKEND_URL)."
+                    )
+                    logger.warning("Error MP Preapproval: %s", mp_resp)
+                    return Response({"error": err_msg}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             print("Error Servidor:", str(e))

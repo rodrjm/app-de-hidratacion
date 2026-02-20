@@ -31,14 +31,14 @@ def crear_recipientes_por_defecto(usuario) -> List[Recipiente]:
     """
     recipientes_por_defecto = [
         {
-            'nombre': 'Taza/Vaso',
+            'nombre': 'Vaso',
             'cantidad_ml': 250,
             'color': '#3B82F6',
             'icono': 'cup',
             'es_favorito': True
         },
         {
-            'nombre': 'Botella/Termo pequeño',
+            'nombre': 'Botella',
             'cantidad_ml': 500,
             'color': '#10B981',
             'icono': 'bottle',

@@ -18,7 +18,6 @@ const Statistics: React.FC = () => {
     estadisticas,
     tendencias,
     insights,
-    consumos,
     isLoading,
     error,
     fetchEstadisticas,

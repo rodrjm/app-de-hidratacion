@@ -11,7 +11,7 @@ const TermsAndConditions: React.FC = () => {
         <div className="mb-8 text-center">
           <BrandLogo />
           <h1 className="text-3xl font-display font-bold text-neutral-700 mt-6">
-            Términos y Condiciones de Uso
+            Términos y condiciones de uso
           </h1>
           <p className="text-neutral-600 mt-2">Última actualización: {new Date().toLocaleDateString('es-ES')}</p>
         </div>
@@ -28,7 +28,7 @@ const TermsAndConditions: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">2. Descargo de Responsabilidad Médica</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">2. Descargo de responsabilidad médica</h2>
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4">
                 <p className="font-display font-semibold text-yellow-800 mb-2">⚠️ IMPORTANTE - LEA CUIDADOSAMENTE</p>
                 <p className="text-neutral-700 leading-relaxed">
@@ -69,7 +69,7 @@ const TermsAndConditions: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">4. Cuentas de Usuario</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">4. Cuentas de usuario</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Para utilizar ciertas funcionalidades de la Aplicación, debe crear una cuenta. Usted es responsable 
                 de mantener la confidencialidad de sus credenciales de acceso y de todas las actividades que ocurran 
@@ -78,7 +78,7 @@ const TermsAndConditions: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">5. Propiedad Intelectual</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">5. Propiedad intelectual</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Todo el contenido de la Aplicación, incluyendo pero no limitado a textos, gráficos, logos, iconos, 
                 imágenes, y software, es propiedad de los desarrolladores o sus licenciantes y está protegido por 
@@ -88,7 +88,7 @@ const TermsAndConditions: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">6. Limitación de Responsabilidad</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">6. Limitación de responsabilidad</h2>
               <p className="text-neutral-700 leading-relaxed">
                 En la máxima medida permitida por la ley, los desarrolladores de la Aplicación no serán responsables 
                 de ningún daño directo, indirecto, incidental, especial, consecuente o punitivo que resulte del uso 
@@ -97,7 +97,7 @@ const TermsAndConditions: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">7. Modificaciones de los Términos</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">7. Modificaciones de los términos</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Nos reservamos el derecho de modificar estos términos en cualquier momento. Las modificaciones 
                 entrarán en vigor inmediatamente después de su publicación. Su uso continuado de la Aplicación 
@@ -114,7 +114,7 @@ const TermsAndConditions: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">9. Ley Aplicable</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">9. Ley aplicable</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Estos términos se regirán e interpretarán de acuerdo con las leyes de Argentina, sin tener en 
                 cuenta sus disposiciones sobre conflictos de leyes.
@@ -124,7 +124,7 @@ const TermsAndConditions: React.FC = () => {
             <section>
               <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">10. Contacto</h2>
               <p className="text-neutral-700 leading-relaxed">
-                Si tiene preguntas sobre estos Términos y Condiciones, puede contactarnos a través de la 
+                Si tiene preguntas sobre estos Términos y condiciones, puede contactarnos a través de la 
                 funcionalidad de feedback disponible en la Aplicación.
               </p>
             </section>

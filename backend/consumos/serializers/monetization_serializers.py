@@ -13,6 +13,7 @@ class SubscriptionStatusSerializer(serializers.Serializer):
     is_premium = serializers.BooleanField()
     subscription_end_date = serializers.DateField(required=False, allow_null=True)
     plan_type = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    auto_renewal = serializers.BooleanField(required=False, allow_null=True)
 
 
 class PremiumFeaturesSerializer(serializers.Serializer):

@@ -7,6 +7,7 @@ from django.db.models import Q
 from datetime import date, timedelta, datetime as dt
 from .models import Actividad
 from .serializers import ActividadSerializer, ActividadCreateSerializer
+from .services.weather_service import WeatherService
 
 
 class ActividadViewSet(viewsets.ModelViewSet):
@@ -105,5 +106,80 @@ class ActividadViewSet(viewsets.ModelViewSet):
             'cantidad_actividades': cantidad_actividades,
             'pse_total': pse_total,
             'actividades': serializer.data
+        })
+
+    @action(detail=False, methods=['post'], url_path='estimate')
+    def estimate(self, request):
+        """
+        Estima el PSE (ml) y ajuste climático sin guardar la actividad.
+        Body: tipo_actividad, duracion_minutos, intensidad, fecha_hora (ISO), latitude, longitude.
+        """
+        tipo = request.data.get('tipo_actividad')
+        duracion = request.data.get('duracion_minutos')
+        intensidad = request.data.get('intensidad')
+        fecha_hora_str = request.data.get('fecha_hora')
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+
+        if not all([tipo, duracion is not None, intensidad, fecha_hora_str]):
+            return Response(
+                {'error': 'Faltan tipo_actividad, duracion_minutos, intensidad o fecha_hora'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            duracion = int(duracion)
+            if duracion < 1 or duracion > 1440:
+                return Response(
+                    {'error': 'duracion_minutos debe estar entre 1 y 1440'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except (TypeError, ValueError):
+            return Response({'error': 'duracion_minutos inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Aceptar ISO con o sin Z
+            s = fecha_hora_str.replace('Z', '+00:00').strip()
+            if len(s) == 19:
+                s += '+00:00'
+            activity_dt = dt.fromisoformat(s)
+            if activity_dt.tzinfo is None:
+                activity_dt = timezone.make_aware(activity_dt)
+        except (ValueError, TypeError, AttributeError):
+            return Response({'error': 'fecha_hora inválido (use formato ISO)'}, status=status.HTTP_400_BAD_REQUEST)
+
+        temperature = None
+        humidity = None
+        weather_message = None
+
+        if latitude is not None and longitude is not None:
+            try:
+                weather_service = WeatherService()
+                weather_data = weather_service.get_weather_data(
+                    float(latitude), float(longitude), activity_dt
+                )
+                if weather_data.get('success'):
+                    temperature = weather_data.get('temperature')
+                    humidity = weather_data.get('humidity')
+                    weather_message = weather_data.get('weather_message')
+            except Exception:
+                pass
+
+        # Calcular PSE sin guardar (usuario solo para instancia mínima)
+        dummy = Actividad(
+            usuario=request.user,
+            tipo_actividad=tipo,
+            duracion_minutos=duracion,
+            intensidad=intensidad,
+            fecha_hora=activity_dt,
+            pse_calculado=0,
+        )
+        estimated_pse = dummy.calcular_pse(temperature, humidity)
+        factor = dummy._calcular_factor_climatico(temperature, humidity)
+        climate_adjustment = f"{((factor - 1.0) * 100):+.0f}%" if factor != 1.0 else None
+
+        return Response({
+            'estimated_pse_ml': estimated_pse,
+            'weather_message': weather_message,
+            'climate_adjustment': climate_adjustment,
         })
 

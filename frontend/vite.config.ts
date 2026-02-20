@@ -5,6 +5,10 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Base path relativo para Capacitor (permite que los assets carguen desde file:// o capacitor://)
+  // Esto es necesario porque en apps móviles, los archivos se sirven desde el sistema de archivos local
+  // y no desde un servidor web, por lo que las rutas absolutas (/assets/...) no funcionan
+  base: './',
   plugins: [
     react(),
     // Deshabilitar temporalmente PWA para evitar problemas de cache

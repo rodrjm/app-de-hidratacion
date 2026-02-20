@@ -19,6 +19,7 @@ from consumos.permissions import IsPremiumUser
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.core.mail import send_mail
 from .utils import crear_recipientes_por_defecto
 
 logger = logging.getLogger(__name__)
@@ -323,6 +324,34 @@ class ChangePasswordView(APIView):
         return ip
 
 
+class DeleteAccountView(APIView):
+    """
+    Vista para que el usuario autenticado elimine su propia cuenta de forma irreversible.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Elimina la cuenta del usuario autenticado y todos sus datos asociados.
+        """
+        user = request.user
+        email = user.email
+        try:
+            with transaction.atomic():
+                user.delete()
+            logger.info(f'Cuenta eliminada por el usuario - Email: {email}')
+            return Response(
+                {'message': 'Tu cuenta ha sido eliminada correctamente.'},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error(f'Error al eliminar cuenta - Email: {email}, Error: {e}', exc_info=True)
+            return Response(
+                {'error': 'No se pudo eliminar la cuenta. Intenta de nuevo más tarde.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class UserStatsView(APIView):
     """
     Vista para obtener estadísticas del usuario.
@@ -486,6 +515,28 @@ class SugerenciaCreateView(generics.CreateAPIView):
         try:
             sugerencia = serializer.save()
             logger.info(f'Sugerencia creada - Usuario: {request.user.email}, Tipo: {sugerencia.tipo}')
+
+            # Notificar por correo (no falla la API si el email falla)
+            try:
+                subject = f'Nueva sugerencia de Dosis Vital - {sugerencia.tipo}'
+                body = (
+                    f'Usuario: {request.user.email}\n'
+                    f'Tipo: {sugerencia.get_tipo_display()}\n'
+                    f'Nombre: {sugerencia.nombre}\n'
+                    f'Intensidad estimada: {sugerencia.intensidad_estimada or "-"}\n'
+                    f'Comentarios:\n{sugerencia.comentarios or "-"}\n'
+                    f'Fecha: {sugerencia.fecha_creacion}\n'
+                )
+                send_mail(
+                    subject,
+                    body,
+                    getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@dosisvital.local'),
+                    ['rodrjm94@gmail.com'],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                logger.warning(f'No se pudo enviar email de sugerencia: {e}')
+
             return Response({
                 'message': 'Sugerencia enviada exitosamente',
                 'sugerencia': serializer.data
@@ -523,6 +574,26 @@ class FeedbackCreateView(generics.CreateAPIView):
         try:
             feedback = serializer.save()
             logger.info(f'Feedback creado - Usuario: {request.user.email}, Tipo: {feedback.tipo}')
+
+            # Notificar por correo (no falla la API si el email falla)
+            try:
+                subject = f'Nuevo feedback de Dosis Vital - {feedback.get_tipo_display()}'
+                body = (
+                    f'Usuario: {request.user.email}\n'
+                    f'Tipo: {feedback.get_tipo_display()}\n'
+                    f'Mensaje:\n{feedback.mensaje}\n'
+                    f'Fecha: {feedback.fecha_creacion}\n'
+                )
+                send_mail(
+                    subject,
+                    body,
+                    getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@dosisvital.local'),
+                    ['rodrjm94@gmail.com'],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                logger.warning(f'No se pudo enviar email de feedback: {e}')
+
             return Response({
                 'message': 'Feedback enviado exitosamente. ¡Gracias por tu aporte!',
                 'feedback': serializer.data
@@ -627,17 +698,16 @@ class ReclamarRecompensaReferidoView(APIView):
             from datetime import timedelta
             from django.utils import timezone
             
-            if user.es_premium and hasattr(user, 'subscription_end_date') and user.subscription_end_date:
-                # Si ya es premium, extender la suscripción
+            if user.es_premium and getattr(user, 'subscription_end_date', None):
+                # Si ya es premium con fecha, extender la suscripción
                 nueva_fecha = max(user.subscription_end_date, timezone.now().date()) + timedelta(days=30 * recompensas_a_reclamar)
             else:
-                # Si no es premium, activar por 30 días
+                # Si no es premium o es lifetime (sin fecha), activar por 30 días
                 nueva_fecha = timezone.now().date() + timedelta(days=30 * recompensas_a_reclamar)
                 user.es_premium = True
-            
-            # Guardar fecha de fin de suscripción si el modelo lo soporta
-            # Por ahora, solo actualizamos es_premium
-            user.save(update_fields=['es_premium'])
+
+            user.subscription_end_date = nueva_fecha
+            user.save(update_fields=['es_premium', 'subscription_end_date'])
             
             logger.info(f'Recompensa de referidos reclamada - Usuario: {user.email}, Recompensas: {recompensas_a_reclamar}')
             

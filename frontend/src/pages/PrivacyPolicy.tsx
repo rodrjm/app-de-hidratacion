@@ -29,12 +29,12 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">2. Información que Recopilamos</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">2. Información que recopilamos</h2>
               <p className="text-neutral-700 leading-relaxed mb-3">
                 Recopilamos los siguientes tipos de información:
               </p>
               
-              <h3 className="text-lg font-display font-semibold text-neutral-800 mb-2">2.1. Información de Registro</h3>
+              <h3 className="text-lg font-display font-semibold text-neutral-800 mb-2">2.1. Información de registro</h3>
               <ul className="list-disc pl-6 space-y-2 text-neutral-700 mb-4">
                 <li>Nombre y apellido</li>
                 <li>Dirección de correo electrónico</li>
@@ -42,7 +42,7 @@ const PrivacyPolicy: React.FC = () => {
                 <li>Nombre de usuario</li>
               </ul>
 
-              <h3 className="text-lg font-display font-semibold text-neutral-800 mb-2">2.2. Información de Salud y Bienestar</h3>
+              <h3 className="text-lg font-display font-semibold text-neutral-800 mb-2">2.2. Información de salud y bienestar</h3>
               <ul className="list-disc pl-6 space-y-2 text-neutral-700 mb-4">
                 <li>Peso corporal</li>
                 <li>Fecha de nacimiento (para calcular la edad)</li>
@@ -55,7 +55,7 @@ const PrivacyPolicy: React.FC = () => {
                 <li>Preferencias de recordatorios</li>
               </ul>
 
-              <h3 className="text-lg font-display font-semibold text-neutral-800 mb-2">2.3. Información Técnica</h3>
+              <h3 className="text-lg font-display font-semibold text-neutral-800 mb-2">2.3. Información técnica</h3>
               <ul className="list-disc pl-6 space-y-2 text-neutral-700">
                 <li>Dirección IP</li>
                 <li>Tipo de navegador y dispositivo</li>
@@ -65,7 +65,7 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">3. Cómo Utilizamos su Información</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">3. Cómo utilizamos su información</h2>
               <p className="text-neutral-700 leading-relaxed mb-3">
                 Utilizamos su información para los siguientes propósitos:
               </p>
@@ -80,7 +80,7 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">4. Seguridad de los Datos</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">4. Seguridad de los datos</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Implementamos medidas de seguridad técnicas y organizativas apropiadas para proteger sus datos personales 
                 contra acceso no autorizado, alteración, divulgación o destrucción. Esto incluye:
@@ -93,13 +93,13 @@ const PrivacyPolicy: React.FC = () => {
                 <li>Copias de seguridad regulares</li>
               </ul>
               <p className="text-neutral-700 leading-relaxed mt-3">
-                Sin embargo, ningún método de transmisión por Internet o almacenamiento electrónico es 100% seguro. 
+                Sin embargo, ningún método de transmisión por internet o almacenamiento electrónico es 100% seguro. 
                 Aunque nos esforzamos por proteger sus datos, no podemos garantizar su seguridad absoluta.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">5. Compartir Información</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">5. Compartir información</h2>
               <p className="text-neutral-700 leading-relaxed">
                 <strong>No vendemos, alquilamos ni compartimos su información personal con terceros</strong> para sus 
                 propios fines de marketing. Podemos compartir información solo en las siguientes circunstancias:
@@ -115,7 +115,7 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">6. Retención de Datos</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">6. Retención de datos</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Conservamos sus datos personales durante el tiempo necesario para cumplir con los propósitos descritos 
                 en esta política, a menos que la ley requiera o permita un período de retención más largo. Si elimina 
@@ -125,7 +125,7 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">7. Sus Derechos</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">7. Sus derechos</h2>
               <p className="text-neutral-700 leading-relaxed mb-3">
                 Usted tiene los siguientes derechos respecto a sus datos personales:
               </p>
@@ -144,7 +144,7 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">8. Cookies y Tecnologías Similares</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">8. Cookies y tecnologías similares</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Utilizamos cookies y tecnologías similares para mejorar su experiencia, analizar el uso de la aplicación 
                 y personalizar el contenido. Puede configurar su navegador para rechazar cookies, aunque esto puede 
@@ -153,7 +153,7 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">9. Menores de Edad</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">9. Menores de edad</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Nuestra aplicación no está dirigida a menores de 13 años. No recopilamos intencionalmente información 
                 personal de menores de 13 años. Si descubrimos que hemos recopilado información de un menor de 13 años, 
@@ -162,7 +162,7 @@ const PrivacyPolicy: React.FC = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">10. Cambios a esta Política</h2>
+              <h2 className="text-xl font-display font-bold text-neutral-800 mb-3">10. Cambios a esta política</h2>
               <p className="text-neutral-700 leading-relaxed">
                 Podemos actualizar esta Política de Privacidad ocasionalmente. Le notificaremos sobre cambios 
                 significativos publicando la nueva política en esta página y actualizando la fecha de "Última actualización". 
@@ -181,7 +181,7 @@ const PrivacyPolicy: React.FC = () => {
 
             <section className="bg-blue-50 border-l-4 border-blue-400 p-4 mt-6">
               <p className="text-neutral-700 leading-relaxed">
-                <strong>Nota sobre Regulaciones:</strong> Esta política cumple con los principios generales de protección 
+                <strong>Nota sobre regulaciones:</strong> Esta política cumple con los principios generales de protección 
                 de datos. Si reside en la Unión Europea, también se aplican los derechos bajo el Reglamento General de 
                 Protección de Datos (RGPD). Si reside en Argentina, se aplican los derechos bajo la Ley de Protección de 
                 Datos Personales (Ley 25.326).
