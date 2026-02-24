@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
+import { wakeUpServer } from "../services/api";
 import { useAppAlert } from "../context/AppAlertContext";
 import GoogleAuthButton from "../components/GoogleAuthButton";
 import Toast from "react-native-toast-message";
@@ -34,6 +35,11 @@ export default function LoginScreen({ navigation }: Props) {
   const [rememberMe, setRememberMe] = useState(true);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Despertar el servidor (Render ~50s cold start) al abrir la pantalla
+  useEffect(() => {
+    wakeUpServer();
+  }, []);
 
   const handleSubmit = async () => {
     setError(null);
@@ -117,9 +123,11 @@ export default function LoginScreen({ navigation }: Props) {
                     value={email}
                     onChangeText={setEmail}
                     placeholder="tu@email.com"
+                    placeholderTextColor="#9CA3AF"
                     autoCapitalize="none"
                     keyboardType="email-address"
                     className="flex-1 px-2 py-3 text-base bg-white"
+                    style={{ color: "#111827" }}
                   />
                 </View>
 
@@ -134,8 +142,10 @@ export default function LoginScreen({ navigation }: Props) {
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Tu contraseña"
+                    placeholderTextColor="#9CA3AF"
                     secureTextEntry={!showPassword}
                     className="flex-1 px-2 py-3 text-base bg-white"
+                    style={{ color: "#111827" }}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}

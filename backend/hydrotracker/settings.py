@@ -297,10 +297,13 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
+    # Sesiones largas para "Recordarme": access ~7 días, refresh ~180 días
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=180),
+    # No rotamos el refresh ni lo ponemos en blacklist en cada uso, para evitar
+    # problemas si el cliente no persiste siempre la última versión.
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
     'UPDATE_LAST_LOGIN': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
@@ -379,7 +382,7 @@ if DEBUG:
 
 # Configuración de metas de hidratación
 META_FIJA_ML = config('META_FIJA_ML', default=2000, cast=int)
-META_MAX_RECORDATORIOS_GRATUITOS = config('META_MAX_RECORDATORIOS_GRATUITOS', default=3, cast=int)
+META_MAX_RECORDATORIOS_GRATUITOS = config('META_MAX_RECORDATORIOS_GRATUITOS', default=4, cast=int)
 META_MAX_RECORDATORIOS_PREMIUM = config('META_MAX_RECORDATORIOS_PREMIUM', default=10, cast=int)
 
 # Logging
@@ -537,7 +540,7 @@ if USE_REDIS:
                 'IGNORE_EXCEPTIONS': True,
             },
             'KEY_PREFIX': 'hydrotracker_sessions',
-            'TIMEOUT': 86400,  # 24 horas
+            'TIMEOUT': 15552000,  # 180 días
         },
         'api': {
             'BACKEND': 'django_redis.cache.RedisCache',
@@ -570,7 +573,7 @@ else:
     # Usar sesiones en base de datos cuando Redis no está disponible
     SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-SESSION_COOKIE_AGE = 86400  # 24 horas
+SESSION_COOKIE_AGE = 15552000  # 180 días (para coincidir con el REFRESH_TOKEN_LIFETIME)
 
 # Security Headers - Solo en producción (HTTPS requerido)
 if not DEBUG:

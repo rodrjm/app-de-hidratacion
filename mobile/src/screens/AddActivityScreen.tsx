@@ -151,14 +151,15 @@ export default function AddActivityScreen() {
       setEstimateLoading(true);
       try {
         const activityDt = getActivityDateTime();
-        const fechaHoraISO = activityDt.toISOString().slice(0, 19);
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const res = await activitiesService.estimate({
           tipo_actividad: tipo,
           duracion_minutos: duracion,
           intensidad,
-          fecha_hora: fechaHoraISO,
+          fecha_hora: activityDt.toISOString(),
           latitude: location.lat,
           longitude: location.lon,
+          tz,
         });
         setEstimate(res);
       } catch {
@@ -359,7 +360,7 @@ export default function AddActivityScreen() {
                   ? ` (Incluye ajuste por clima ☀️ ${estimate.climate_adjustment})`
                   : ""}
               </Text>
-              {estimate.weather_message && (
+              {(estimate.weather_message != null && estimate.weather_message !== "") && (
                 <Text className="text-sm text-neutral-600 mt-2">{estimate.weather_message}</Text>
               )}
             </>

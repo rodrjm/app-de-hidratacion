@@ -12,6 +12,7 @@ import DashboardTips from "../components/DashboardTips";
 import DashboardPremiumCard from "../components/DashboardPremiumCard";
 import MobileAdBanner from "../components/MobileAdBanner";
 import HeaderAppLogo from "../components/HeaderAppLogo";
+import { updateWidgetData } from "../widgets/updateWidgetData";
 import type { EstadisticasDiarias, Actividad, Consumo } from "../types";
 
 function formatLocalDate(d: Date): string {
@@ -55,6 +56,14 @@ export default function DashboardScreen() {
       setStats(s);
       setActividadesHoy(resumen.actividades ?? []);
       setConsumos(consumosRes.results || []);
+      try {
+        await updateWidgetData(
+          s?.total_hidratacion_efectiva_ml ?? 0,
+          s?.meta_ml ?? 2000,
+        );
+      } catch (e) {
+        console.log("[Dashboard] Error actualizando widget:", e);
+      }
     } catch {
       setStats(null);
       setActividadesHoy([]);
@@ -183,7 +192,11 @@ export default function DashboardScreen() {
     <SafeAreaView className="flex-1 bg-primary-50">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          paddingBottom: 180,
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View className="flex-row items-center mb-4">
@@ -274,6 +287,13 @@ export default function DashboardScreen() {
             </View>
           </View>
         </View>
+
+        {/* Anuncio arriba del historial para no superponer con el footer */}
+        {!user?.es_premium && (
+          <View className="mb-4 min-h-[50px] items-center justify-center">
+            <MobileAdBanner placement="dashboard_history" />
+          </View>
+        )}
 
         {/* Layout con grid para tablets y pantallas grandes */}
         <View className="flex-row flex-wrap gap-4 mb-4">
@@ -423,8 +443,6 @@ export default function DashboardScreen() {
             })
               )}
             </View>
-            {/* Anuncio in-feed bajo el historial (solo usuarios gratuitos) */}
-            <MobileAdBanner placement="dashboard_history" />
           </View>
 
           {/* Columna derecha - Tips y Premium (solo visible en tablets/pantallas grandes) */}
@@ -436,8 +454,8 @@ export default function DashboardScreen() {
 
       </ScrollView>
 
-      {/* Botones Flotantes de Acción (FAB) */}
-      <View className="absolute bottom-6 right-4 z-50" style={{ gap: 12 }}>
+      {/* Botones Flotantes de Acción (FAB): por encima del anuncio y del footer */}
+      <View className="absolute right-4 z-50" style={{ bottom: 100, gap: 12 }}>
         <TouchableOpacity
           onPress={() => navigation.navigate("AddConsumo")}
           className="w-16 h-16 rounded-full bg-secondary-600 items-center justify-center shadow-lg"

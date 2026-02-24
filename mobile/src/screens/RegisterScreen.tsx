@@ -216,9 +216,11 @@ export default function RegisterScreen({ navigation }: Props) {
                       value={email}
                       onChangeText={setEmail}
                       placeholder="tu@email.com"
+                      placeholderTextColor="#9CA3AF"
                       autoCapitalize="none"
                       keyboardType="email-address"
                       className="border border-neutral-300 rounded-lg px-3 py-3 text-base bg-white"
+                      style={{ color: "#111827" }}
                     />
                   </View>
                   <View className="w-8 items-center justify-center ml-2">
@@ -246,7 +248,9 @@ export default function RegisterScreen({ navigation }: Props) {
                       value={firstName}
                       onChangeText={setFirstName}
                       placeholder="Juan"
-                      className="border border-neutral-300 rounded-lg px-3 py-3 text-base"
+                      placeholderTextColor="#9CA3AF"
+                      className="border border-neutral-300 rounded-lg px-3 py-3 text-base bg-white"
+                      style={{ color: "#111827" }}
                     />
                   </View>
                   <View className="flex-1">
@@ -257,7 +261,9 @@ export default function RegisterScreen({ navigation }: Props) {
                       value={lastName}
                       onChangeText={setLastName}
                       placeholder="Pérez"
+                      placeholderTextColor="#9CA3AF"
                       className="border border-neutral-300 rounded-lg px-3 py-3 text-base bg-white"
+                      style={{ color: "#111827" }}
                     />
                   </View>
                 </View>
@@ -269,8 +275,10 @@ export default function RegisterScreen({ navigation }: Props) {
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Mínimo 8 caracteres"
+                  placeholderTextColor="#9CA3AF"
                   secureTextEntry
                   className="border border-neutral-300 rounded-lg px-3 py-3 text-base mb-3 bg-white"
+                  style={{ color: "#111827" }}
                 />
 
                 <Text className="text-sm font-semibold text-neutral-700 mb-1">
@@ -280,8 +288,10 @@ export default function RegisterScreen({ navigation }: Props) {
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   placeholder="Repite tu contraseña"
+                  placeholderTextColor="#9CA3AF"
                   secureTextEntry
                   className="border border-neutral-300 rounded-lg px-3 py-3 text-base mb-3 bg-white"
+                  style={{ color: "#111827" }}
                 />
 
                 <View className="mb-3">
@@ -320,8 +330,10 @@ export default function RegisterScreen({ navigation }: Props) {
                     value={peso}
                     onChangeText={setPeso}
                     placeholder={pesoUnidad === "kg" ? "70" : "154"}
+                    placeholderTextColor="#9CA3AF"
                     keyboardType="decimal-pad"
                     className="border border-neutral-300 rounded-lg px-3 py-3 text-base bg-white"
+                    style={{ color: "#111827" }}
                   />
                 </View>
 
@@ -332,7 +344,9 @@ export default function RegisterScreen({ navigation }: Props) {
                   value={fechaNacimiento}
                   onChangeText={setFechaNacimiento}
                   placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#9CA3AF"
                   className="border border-neutral-300 rounded-lg px-3 py-3 text-base mb-3 bg-white"
+                  style={{ color: "#111827" }}
                 />
                 {mostrarCampoFragilidad && (
                   <View className="mb-3 flex-row items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -355,8 +369,10 @@ export default function RegisterScreen({ navigation }: Props) {
                     value={codigoReferido}
                     onChangeText={setCodigoReferido}
                     placeholder="Ingresa el código si un amigo te invitó"
+                    placeholderTextColor="#9CA3AF"
                     autoCapitalize="characters"
                     className="border border-neutral-300 rounded-lg px-3 py-3 text-base bg-white"
+                    style={{ color: "#111827" }}
                   />
                   <Text className="text-[11px] text-neutral-500 mt-1">
                     Si un amigo te invitó, ingresa su código aquí para obtener beneficios.

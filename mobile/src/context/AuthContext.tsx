@@ -98,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await authService.login({ email, password }, options);
       setToken(res.access);
       setUser(res.user);
+      // Si "Recordarme" está desmarcado, borrar tokens guardados para no persistir sesión
       if (options?.rememberMe === false) {
         await clearStoredTokens();
       }

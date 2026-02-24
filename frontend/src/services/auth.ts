@@ -1,6 +1,29 @@
 import { apiService } from './api';
 import { User, LoginForm, RegisterForm } from '@/types';
 
+const RETRY_INTERVAL_MS = 5000;
+const RETRY_MAX_TOTAL_MS = 55000;
+
+/** Reintenta la petición cada 5s hasta 55s si falla por red/timeout; luego lanza error genérico. */
+async function withRetryOnConnection<T>(
+  fn: () => Promise<T>,
+  opts: { intervalMs: number; maxTotalMs: number } = { intervalMs: RETRY_INTERVAL_MS, maxTotalMs: RETRY_MAX_TOTAL_MS }
+): Promise<T> {
+  const start = Date.now();
+  for (;;) {
+    try {
+      return await fn();
+    } catch (e: unknown) {
+      const elapsed = Date.now() - start;
+      const ex = e as { response?: unknown; code?: string };
+      const isConnectionError = !ex.response && (ex.code === 'ECONNABORTED' || ex.code === 'ERR_NETWORK');
+      if (!isConnectionError) throw e;
+      if (elapsed >= opts.maxTotalMs) throw new Error('Error de conexión. Verifica tu internet.');
+      await new Promise((r) => setTimeout(r, opts.intervalMs));
+    }
+  }
+}
+
 export interface AuthResponse {
   user: User;
   tokens: {
@@ -61,7 +84,9 @@ class AuthService {
     try {
       const { rememberMe, ...loginData } = credentials;
       type LoginBackendResponse = { user: User; access: string; refresh: string };
-      const response = await apiService.post<LoginBackendResponse>('/users/login/', loginData);
+      const response = await withRetryOnConnection(() =>
+        apiService.post<LoginBackendResponse>('/users/login/', loginData)
+      );
       
       // El backend devuelve access y refresh directamente, no dentro de tokens
       const loginResponse: LoginResponse = {

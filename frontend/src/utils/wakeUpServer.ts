@@ -1,6 +1,6 @@
 /**
  * Utilidad para "despertar" el servidor de Render antes de que el usuario necesite usarlo.
- * Útil para evitar el cold start de 30 segundos cuando el usuario intenta usar la app.
+ * En plan gratuito, Render puede tardar hasta ~50 segundos en cold start.
  */
 
 /**
