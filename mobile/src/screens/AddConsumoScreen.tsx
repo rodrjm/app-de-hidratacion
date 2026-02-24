@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Switch,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
@@ -23,6 +24,19 @@ import { updateWidgetData } from "../widgets/updateWidgetData";
 
 type CantidadMode = "recipiente" | "personalizada";
 
+function formatTimeForInput(date: Date): string {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function parseTimeToDate(today: Date, timeStr: string): Date {
+  const [h, m] = timeStr.split(":").map(Number);
+  const d = new Date(today);
+  d.setHours(h ?? 0, m ?? 0, 0, 0);
+  return d;
+}
+
 export default function AddConsumoScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
@@ -40,6 +54,14 @@ export default function AddConsumoScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showSugerirModal, setShowSugerirModal] = useState(false);
+  // "Acabo de consumir" = ON por defecto: no se muestra hora; si OFF, se puede editar la hora (solo de hoy).
+  const [acaboDeConsumir, setAcaboDeConsumir] = useState(true);
+  const [horaConsumoStr, setHoraConsumoStr] = useState(() => {
+    if (consumoEditar?.fecha_hora) {
+      return formatTimeForInput(new Date(consumoEditar.fecha_hora));
+    }
+    return formatTimeForInput(new Date());
+  });
 
   // Filtrar bebidas según el plan del usuario
   const bebidasDisponibles = useMemo(() => {
@@ -114,6 +136,13 @@ export default function AddConsumoScreen() {
     if (cantidadMode === "personalizada" && (!cantidadPersonalizada || cantidadPersonalizada <= 0)) {
       return "La cantidad debe ser mayor a 0.";
     }
+    if (!acaboDeConsumir) {
+      const today = new Date();
+      const fechaElegida = parseTimeToDate(today, horaConsumoStr);
+      if (fechaElegida > new Date()) {
+        return "La hora del consumo no puede ser futura.";
+      }
+    }
     return null;
   };
 
@@ -131,17 +160,27 @@ export default function AddConsumoScreen() {
           bebida: bebidaId,
           cantidad_ml: cantidad,
           recipiente: cantidadMode === "recipiente" ? (recipienteId ?? null) : null,
-          fecha_hora: consumoEditar.fecha_hora,
         };
+        // Solo enviar fecha_hora si el usuario desactivó "Acabo de consumir" y eligió otra hora.
+        if (!acaboDeConsumir) {
+          const today = new Date();
+          payload.fecha_hora = parseTimeToDate(today, horaConsumoStr).toISOString();
+        } else {
+          payload.fecha_hora = consumoEditar.fecha_hora;
+        }
         await consumosService.updateConsumo(consumoEditar.id, payload);
         showAlert({ title: "Listo", message: "Consumo actualizado exitosamente.", variant: "success" });
       } else {
-        await consumosService.createConsumo({
-          bebida: bebidaId,
-          recipiente: cantidadMode === "recipiente" ? recipienteId ?? undefined : undefined,
+        const today = new Date();
+        const createPayload: Parameters<typeof consumosService.createConsumo>[0] = {
+          bebida: bebidaId!,
           cantidad_ml: cantidad,
-          fecha_hora: new Date().toISOString(),
-        });
+          recipiente: cantidadMode === "recipiente" && recipienteId != null ? recipienteId : null,
+          fecha_hora: acaboDeConsumir
+            ? new Date().toISOString()
+            : parseTimeToDate(today, horaConsumoStr).toISOString(),
+        };
+        await consumosService.createConsumo(createPayload);
         showAlert({ title: "Listo", message: "Consumo registrado exitosamente.", variant: "success" });
       }
       // Recalcular stats del día y actualizar widget
@@ -336,6 +375,23 @@ export default function AddConsumoScreen() {
               {hidratacionEfectiva} ml
             </Text>
           </View>
+
+          {/* Acabo de consumir: ON = no enviar/editar hora; OFF = mostrar selector de hora (solo hoy) */}
+          <View className="flex-row items-center justify-between py-3 border-t border-neutral-100 mb-2">
+            <Text className="text-neutral-800 font-medium">Acabo de consumir</Text>
+            <Switch value={acaboDeConsumir} onValueChange={setAcaboDeConsumir} />
+          </View>
+          {!acaboDeConsumir && (
+            <>
+              <Text className="text-sm font-semibold text-neutral-700 mb-2">Hora del consumo (24h)</Text>
+              <TextInput
+                value={horaConsumoStr}
+                onChangeText={setHoraConsumoStr}
+                placeholder="14:30"
+                className="border border-neutral-300 rounded-lg px-3 py-3 text-base mb-4 bg-white"
+              />
+            </>
+          )}
 
           <TouchableOpacity
             onPress={handleSubmit}

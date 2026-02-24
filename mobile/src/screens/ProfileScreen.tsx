@@ -229,6 +229,8 @@ export default function ProfileScreen() {
           />
         </GroupCard>
 
+        <MobileAdBanner placement="profile" />
+
         {/* Grupo B: Cuenta y seguridad */}
         <GroupCard title="Cuenta y seguridad">
           <RowItem
@@ -286,8 +288,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
         )}
-
-        <MobileAdBanner placement="profile" />
       </ScrollView>
     </SafeAreaView>
   );

@@ -59,22 +59,40 @@ export const activitiesService = {
     fecha_hora: string;
     latitude: number;
     longitude: number;
+    tz?: string;
   }): Promise<EstimateResponse> {
-    const { data } = await api.post<EstimateResponse>("/actividades/estimate/", {
-      ...params,
+    const tz = params.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const body = {
+      tipo_actividad: params.tipo_actividad,
+      duracion_minutos: params.duracion_minutos,
+      intensidad: params.intensidad,
+      fecha_hora: params.fecha_hora,
       latitude: params.latitude,
       longitude: params.longitude,
+      tz,
+    };
+    // Enviar tz también por query para asegurar que el backend lo reciba (hora correcta en mensaje de clima)
+    const { data } = await api.post<EstimateResponse>("/actividades/estimate/", body, {
+      params: { tz },
     });
     return data;
   },
 
-  async create(payload: ActividadForm & { latitude?: number; longitude?: number }): Promise<CreatedActivity> {
-    const { data } = await api.post<CreatedActivity>("/actividades/", payload);
+  async create(payload: ActividadForm & { latitude?: number; longitude?: number; tz?: string }): Promise<CreatedActivity> {
+    const body = {
+      ...payload,
+      tz: payload.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const { data } = await api.post<CreatedActivity>("/actividades/", body);
     return data;
   },
 
-  async update(id: number, payload: Partial<ActividadForm> & { latitude?: number; longitude?: number }): Promise<Actividad> {
-    const { data } = await api.put<Actividad>(`/actividades/${id}/`, payload);
+  async update(id: number, payload: Partial<ActividadForm> & { latitude?: number; longitude?: number; tz?: string }): Promise<Actividad> {
+    const body = {
+      ...payload,
+      tz: payload.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const { data } = await api.put<Actividad>(`/actividades/${id}/`, body);
     return data;
   },
 

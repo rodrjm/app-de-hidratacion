@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Dosis Vital",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -38,6 +38,10 @@
         }
       ],
       [
+        "expo-font",
+        "expo-secure-store"
+      ],
+      [
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-3940256099942544~3347511713",
@@ -53,10 +57,13 @@
               "name": "HydrationWidget",
               "label": "Dosis Vital – Hidratación",
               "description": "Consulta tu progreso de hidratación diaria y accede rápido al registro.",
-              "minWidth": "320dp",
-              "minHeight": "120dp",
-              "targetCellWidth": 4,
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
               "targetCellHeight": 2,
+              "maxResizeWidth": "250dp",
+              "maxResizeHeight": "110dp",
+              "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
             }
           ]

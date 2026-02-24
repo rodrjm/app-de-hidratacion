@@ -71,7 +71,11 @@ class ConsumoSerializer(serializers.ModelSerializer):
 class ConsumoCreateSerializer(serializers.ModelSerializer):
     """
     Serializer para crear consumos.
+    fecha_hora es opcional: si no se envía, se usa la fecha/hora actual al crear.
+    Si se envía, la fecha se normaliza al día actual (solo se usa la hora).
     """
+    fecha_hora = serializers.DateTimeField(required=False, allow_null=True)
+
     class Meta:
         model = Consumo
         fields = [
@@ -90,17 +94,26 @@ class ConsumoCreateSerializer(serializers.ModelSerializer):
     def validate_fecha_hora(self, value):
         """
         Valida que la fecha no sea futura.
+        La fecha se normaliza al día actual (solo se considera la hora enviada).
         Si la fecha viene sin zona horaria (naive), se asume que es UTC.
-        Si viene con zona horaria, se mantiene.
         """
+        if value is None:
+            return value
         # Si la fecha es naive (sin timezone), asumir que es UTC
         if timezone.is_naive(value):
             value = timezone.make_aware(value, timezone.utc)
-        
-        if value > timezone.now():
+        # Fuerza la fecha al día actual (solo el usuario puede cambiar la hora de hoy)
+        now = timezone.now()
+        value = value.replace(year=now.year, month=now.month, day=now.day)
+        if value > now:
             raise serializers.ValidationError("La fecha no puede ser futura")
         return value
-    
+
+    def create(self, validated_data):
+        if validated_data.get('fecha_hora') is None:
+            validated_data['fecha_hora'] = timezone.now()
+        return super().create(validated_data)
+
 
 
 class ConsumoStatsSerializer(serializers.Serializer):

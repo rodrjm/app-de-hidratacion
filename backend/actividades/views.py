@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,6 +9,8 @@ from datetime import date, timedelta, datetime as dt
 from .models import Actividad
 from .serializers import ActividadSerializer, ActividadCreateSerializer
 from .services.weather_service import WeatherService
+
+logger = logging.getLogger(__name__)
 
 
 class ActividadViewSet(viewsets.ModelViewSet):
@@ -151,18 +154,26 @@ class ActividadViewSet(viewsets.ModelViewSet):
         humidity = None
         weather_message = None
 
+        # Zona horaria del usuario (ej. "America/Argentina/Buenos_Aires") para mostrar la hora del clima correcta
+        user_tz = (request.data.get('tz') or request.data.get('timezone') or request.query_params.get('tz') or request.query_params.get('timezone') or '').strip() or None
+
         if latitude is not None and longitude is not None:
             try:
+                lat_f = float(latitude)
+                lon_f = float(longitude)
                 weather_service = WeatherService()
                 weather_data = weather_service.get_weather_data(
-                    float(latitude), float(longitude), activity_dt
+                    lat_f, lon_f, activity_dt, user_timezone=user_tz
                 )
                 if weather_data.get('success'):
                     temperature = weather_data.get('temperature')
                     humidity = weather_data.get('humidity')
                     weather_message = weather_data.get('weather_message')
-            except Exception:
-                pass
+                else:
+                    weather_message = weather_data.get('weather_message') or 'Clima no disponible para esta ubicación.'
+            except Exception as e:
+                logger.warning('Estimate weather error: %s', e)
+                weather_message = 'No se pudo obtener el clima para la estimación.'
 
         # Calcular PSE sin guardar (usuario solo para instancia mínima)
         dummy = Actividad(

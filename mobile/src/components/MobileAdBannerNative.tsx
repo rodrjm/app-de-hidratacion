@@ -1,6 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { BannerAd, BannerAdSize, TestIds } from "react-native-google-mobile-ads";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAuth } from "../context/AuthContext";
 
 type MobileAdPlacement = "footer" | "dashboard_history" | "profile";
@@ -15,6 +16,7 @@ interface MobileAdBannerNativeProps {
  */
 export default function MobileAdBannerNative({ placement }: MobileAdBannerNativeProps) {
   const { user } = useAuth();
+  const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
 
   if (!user || user.es_premium) {
     return null;
@@ -35,6 +37,11 @@ export default function MobileAdBannerNative({ placement }: MobileAdBannerNative
   const unitId = getUnitId();
 
   if (placement === "footer") {
+    // Cuando se usa globalmente (como en MainTabs), anclamos el banner justo por encima
+    // del Bottom Tab Navigator usando su altura real. Si por algún motivo no hay tab bar,
+    // usamos bottom: 0 para pegarlo al borde inferior del contenedor.
+    const bottom = tabBarHeight > 0 ? tabBarHeight : 0;
+
     return (
       <View
         pointerEvents="box-none"
@@ -42,7 +49,7 @@ export default function MobileAdBannerNative({ placement }: MobileAdBannerNative
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: 64,
+          bottom,
           alignItems: "center",
         }}
       >
@@ -51,12 +58,13 @@ export default function MobileAdBannerNative({ placement }: MobileAdBannerNative
     );
   }
 
+  // Banners embebidos en pantallas (dashboard_history, profile): sin márgenes extra que generen huecos.
   return (
     <View
       style={{
-        marginTop: 8,
-        marginBottom: 8,
+        minHeight: 50,
         alignItems: "center",
+        justifyContent: "center",
       }}
     >
       <BannerAd unitId={unitId} size={BannerAdSize.BANNER} />

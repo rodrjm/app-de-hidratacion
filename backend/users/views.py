@@ -817,7 +817,8 @@ class GoogleAuthView(APIView):
                     last_name=last_name,
                     password=User.objects.make_random_password(),  # Contraseña aleatoria (no se usará)
                     peso=70.0,  # Valor temporal, se actualizará en onboarding
-                    fecha_nacimiento=date.today() - timedelta(days=365*25)  # Valor temporal, se actualizará en onboarding
+                    fecha_nacimiento=date.today() - timedelta(days=365*25)  # Valor temporal, se actualizará en 
+                    intervalo_notificaciones=240 # Intervalo de notificaciones por defecto
                 )
                 
                 # Generar código de referido

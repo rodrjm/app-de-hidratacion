@@ -59,9 +59,27 @@ export async function clearStoredTokens(): Promise<void> {
   } catch {}
 }
 
+// Timeout ~55s: backend en Render (plan gratuito) puede tardar hasta ~50s en despertar
+const API_TIMEOUT_MS = 55000;
+
+// Variables para manejar concurrencia en el refresh de tokens
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: unknown) => void }> = [];
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: API_TIMEOUT_MS,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -100,17 +118,83 @@ api.interceptors.response.use(
   async (error) => {
     const status = error.response?.status;
     const url = error.config?.url;
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retried?: boolean };
+
     console.log("[API] Response error ←", {
       message: error?.message,
       code: error?.code,
       status,
       url,
     });
-    if (status === 401 && !isPublicEndpoint(url)) {
-      await clearStoredTokens();
+
+    // Ante 401 en una ruta protegida: intentar renovar el access con el refresh token.
+    if (status === 401 && !isPublicEndpoint(url) && !originalRequest._retried) {
+      if (isRefreshing) {
+        // Si ya hay una petición refrescando el token, encolamos esta petición
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            if (token && originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            return api.request(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retried = true;
+      isRefreshing = true;
+
+      const refreshToken = await getStoredRefreshToken();
+
+      if (!refreshToken) {
+        isRefreshing = false;
+        await clearStoredTokens();
+        return Promise.reject(error);
+      }
+
+      try {
+        // Hacemos el refresh usando axios puro para evitar el interceptor original
+        const { data } = await axios.post<{ access: string; refresh?: string }>(
+          `${API_BASE_URL}/users/token/refresh/`,
+          { refresh: refreshToken }
+        );
+
+        if (data.access) {
+          await setStoredTokens(data.access, data.refresh ?? undefined);
+          api.defaults.headers.common["Authorization"] = `Bearer ${data.access}`;
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${data.access}`;
+          }
+
+          processQueue(null, data.access);
+          return api.request(originalRequest);
+        }
+      } catch (refreshErr: unknown) {
+        const refreshStatus = (refreshErr as { response?: { status?: number } })?.response?.status;
+        console.log("[API] Token refresh failed ←", refreshErr, "status:", refreshStatus);
+
+        processQueue(refreshErr as Error, null);
+
+        if (refreshStatus === 401) {
+          await clearStoredTokens();
+        }
+        return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
+      }
     }
     return Promise.reject(error);
   }
 );
+
+/** Envía un ping al backend para despertarlo (Render puede tardar ~50s en cold start). */
+export function wakeUpServer(): void {
+  const healthUrl = API_BASE_URL.replace(/\/$/, "") + "/health/";
+  fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => {});
+}
 
 export default api;

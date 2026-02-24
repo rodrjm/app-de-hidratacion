@@ -1,104 +1,106 @@
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
-import { Platform } from "react-native";
+/**
+ * Google Sign-In nativo (@react-native-google-signin/google-signin).
+ * Requiere development build (no funciona en Expo Go).
+ * En Google Cloud: cliente Android con package com.dosisvital.app + SHA-1;
+ * webClientId = Client ID del cliente "Aplicación web" (o el Android).
+ */
+import Constants from "expo-constants";
 import { Buffer } from "buffer";
+import type { User as GoogleUser } from "@react-native-google-signin/google-signin";
 
-// Necesario para que WebBrowser funcione correctamente en web
-if (Platform.OS === "web") {
-  WebBrowser.maybeCompleteAuthSession();
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "";
+
+/** Decodifica el payload del idToken (JWT) para obtener email u otros claims si el user object no los trae. */
+function getEmailFromIdToken(idToken: string | null): string | null {
+  if (!idToken || typeof idToken !== "string") return null;
+  try {
+    const parts = idToken.split(".");
+    if (parts.length !== 3) return null;
+    const payload = parts[1];
+
+    const decoded = JSON.parse(
+      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8")
+    ) as { email?: string };
+
+    return decoded.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Configuración de Google OAuth usando expo-auth-session
- */
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "";
-
-const discovery = {
-  authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-  tokenEndpoint: "https://oauth2.googleapis.com/token",
-  revocationEndpoint: "https://oauth2.googleapis.com/revoke",
-};
-
-/**
- * Inicia el flujo de autenticación con Google
- * Retorna el credential codificado en base64 que el backend espera
+ * Inicia el flujo de autenticación con Google (SDK nativo).
+ * Retorna el credential codificado en base64 que el backend espera (email, first_name, last_name, picture, sub).
+ * Solo funciona en development build o producción; en Expo Go lanza un error claro.
+ * Tras el registro, el backend devuelve is_new_user y el usuario es redirigido al Onboarding para completar peso y fecha de nacimiento.
  */
 export async function signInWithGoogle(): Promise<string | null> {
+  const isExpoGo = Constants.appOwnership === "expo";
+  if (isExpoGo) {
+    throw new Error(
+      "Iniciar sesión con Google requiere una build de desarrollo o producción. No está disponible en Expo Go. Ejecuta: npx expo prebuild --clean y luego npx expo run:android"
+    );
+  }
+
+  if (!GOOGLE_WEB_CLIENT_ID) {
+    throw new Error(
+      "Google Client ID no configurado. Configura EXPO_PUBLIC_GOOGLE_CLIENT_ID en tu archivo .env"
+    );
+  }
+
   try {
-    if (!GOOGLE_CLIENT_ID) {
-      throw new Error("Google Client ID no configurado. Configura EXPO_PUBLIC_GOOGLE_CLIENT_ID en tu archivo .env");
-    }
+    const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
 
-    // Configurar el redirect URI según la plataforma
-    const redirectUri = AuthSession.makeRedirectUri({
-      scheme: Platform.OS === "web" ? undefined : "com.dosisvital.app",
-      path: "auth",
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: true,
+      scopes: ["email", "profile"],
     });
 
-    console.log("[GoogleAuth] Redirect URI:", redirectUri);
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const result = await GoogleSignin.signIn();
 
-    // Crear el request de autenticación
-    const request = new AuthSession.AuthRequest({
-      clientId: GOOGLE_CLIENT_ID,
-      scopes: ["openid", "profile", "email"],
-      responseType: AuthSession.ResponseType.Token,
-      redirectUri,
-      usePKCE: Platform.OS !== "web", // PKCE solo en mobile
-      additionalParameters: {},
-    });
-
-    // Obtener la URL de autorización
-    const authUrl = await request.makeAuthUrlAsync(discovery);
-    console.log("[GoogleAuth] Auth URL generada");
-
-    // Abrir el navegador para autenticación
-    const result = await AuthSession.startAsync({
-      authUrl,
-      returnUrl: redirectUri,
-    });
-
-    console.log("[GoogleAuth] Result type:", result.type);
-
-    if (result.type === "success" && result.params.access_token) {
-      // Obtener información del usuario usando el token
-      const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-        headers: {
-          Authorization: `Bearer ${result.params.access_token}`,
-        },
-      });
-
-      if (!userInfoResponse.ok) {
-        throw new Error("Error al obtener información del usuario de Google");
-      }
-
-      const userInfo = await userInfoResponse.json();
-      console.log("[GoogleAuth] User info obtenida:", { email: userInfo.email });
-
-      // Construir el credential en el formato que espera el backend
-      const credentialData = {
-        email: userInfo.email,
-        first_name: userInfo.given_name || "",
-        last_name: userInfo.family_name || "",
-        picture: userInfo.picture,
-        sub: userInfo.id,
-      };
-
-      // Codificar en base64 (como lo hace el frontend web con btoa)
-      // En React Native usamos Buffer
-      const credentialJson = JSON.stringify(credentialData);
-      const credential = Buffer.from(credentialJson, "utf-8").toString("base64");
-
-      console.log("[GoogleAuth] Credential generado");
-      return credential;
-    } else if (result.type === "cancel") {
+    if (!result || (result as { type?: string }).type === "cancelled") {
       throw new Error("Autenticación cancelada por el usuario");
-    } else if (result.type === "error") {
-      throw new Error(result.error?.message || "Error en la autenticación con Google");
-    } else {
-      throw new Error("Error desconocido en la autenticación con Google");
     }
-  } catch (error) {
-    console.error("[GoogleAuth] Error:", error);
-    throw error;
+
+    const signInResult = result as GoogleUser;
+    const user = signInResult.user;
+    if (!user) throw new Error("Google no proporcionó los datos del usuario");
+
+    let email = user.email ?? null;
+    if (!email && signInResult.idToken) {
+      email = getEmailFromIdToken(signInResult.idToken);
+    }
+    if (!email) throw new Error("Google no proporcionó el correo electrónico");
+
+    const givenName = user.givenName ?? "";
+    const familyName = user.familyName ?? "";
+    const fullName = user.name ?? "";
+    const first_name = givenName || (fullName ? fullName.trim().split(/\s+/)[0] ?? "" : "");
+    const last_name = familyName || (fullName ? fullName.trim().split(/\s+/).slice(1).join(" ") ?? "" : "");
+
+    const credentialData = {
+      email,
+      first_name,
+      last_name,
+      picture: user.photo ?? null,
+      sub: user.id ?? "",
+    };
+
+    const credentialJson = JSON.stringify(credentialData);
+    const credential = Buffer.from(credentialJson, "utf-8").toString("base64");
+    return credential;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("cancelada") || message.includes("cancel")) {
+      throw new Error("Autenticación cancelada por el usuario");
+    }
+    if (message.includes("DEVELOPER_ERROR") || message.includes("10")) {
+      throw new Error(
+        "Error de configuración de Google. Comprueba en Google Cloud: cliente Android con package com.dosisvital.app y SHA-1 correcto."
+      );
+    }
+    throw err;
   }
 }

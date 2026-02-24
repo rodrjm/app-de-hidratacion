@@ -165,7 +165,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         # Extraer la contraseña y código de referido
         password = validated_data.pop('password')
         codigo_referido_usado = validated_data.pop('codigo_referido', None)
-        
+
+        # Intervalo de notificaciones por defecto
+        validated_data.setdefault('intervalo_notificaciones', 240)
+
         # Crear el usuario
         user = User.objects.create_user(
             password=password,

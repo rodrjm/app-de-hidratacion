@@ -8,6 +8,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { AppAlertProvider } from "./src/context/AppAlertContext";
 import { notificationService } from "./src/services/notifications";
@@ -70,14 +71,19 @@ function AuthNavigator() {
 }
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const tabBarHeight = 64;
+  const extraBottom = Math.max(insets.bottom, 0);
+  const showFooterBanner = user && !user.es_premium;
   return (
     <View className="flex-1">
       <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          height: 64,
-          paddingBottom: 10,
+          height: tabBarHeight + extraBottom,
+          paddingBottom: extraBottom + 10,
           paddingTop: 6,
           borderTopColor: "#E5E7EB",
           backgroundColor: "#FFFFFF",
@@ -101,8 +107,7 @@ function MainTabs() {
       <Tab.Screen name="Statistics" component={StatisticsScreen} options={{ title: "Estadísticas" }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: "Perfil" }} />
       </Tab.Navigator>
-      {/* Banner inferior global (solo usuarios no premium; controlado dentro de MobileAdBanner) */}
-      <MobileAdBanner placement="footer" />
+      {showFooterBanner ? <MobileAdBanner placement="footer" /> : null}
     </View>
   );
 }
@@ -236,7 +241,9 @@ function RootNavigator() {
           const enabled = user.recordar_notificaciones ?? true;
           const horaInicio = user.hora_inicio ?? "08:00";
           const horaFin = user.hora_fin ?? "22:00";
-          const intervalo = user.intervalo_notificaciones ?? 240;
+          // Usuarios gratuitos: intervalo mínimo 4 h (240 min); premium sin tope
+          const rawInterval = user.intervalo_notificaciones ?? 240;
+          const intervalo = user.es_premium ? rawInterval : Math.max(240, rawInterval);
           await notificationService.syncFromUserProfile({
             recordar_notificaciones: enabled,
             hora_inicio: horaInicio,
@@ -296,14 +303,16 @@ export default function App() {
   };
 
   return (
-    <AuthProvider>
-      <AppAlertProvider>
-        <NavigationContainer linking={linking}>
-          <StatusBar style="dark" />
-          <RootNavigator />
-          <Toast />
-        </NavigationContainer>
-      </AppAlertProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AppAlertProvider>
+          <NavigationContainer linking={linking}>
+            <StatusBar style="dark" />
+            <RootNavigator />
+            <Toast />
+          </NavigationContainer>
+        </AppAlertProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

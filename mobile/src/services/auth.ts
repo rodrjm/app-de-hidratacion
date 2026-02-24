@@ -5,6 +5,28 @@
 import api, { setStoredTokens, clearStoredTokens, getStoredRefreshToken } from "./api";
 import type { User, LoginForm, RegisterForm, AuthResponse, RegisterBackendResponse } from "../types";
 
+const RETRY_INTERVAL_MS = 5000;
+const RETRY_MAX_TOTAL_MS = 55000;
+
+function isConnectionError(e: unknown): boolean {
+  const ex = e as { response?: unknown; code?: string };
+  return !ex.response && (ex.code === "ECONNABORTED" || ex.code === "ERR_NETWORK");
+}
+
+async function withRetryOnConnection<T>(fn: () => Promise<T>): Promise<T> {
+  const start = Date.now();
+  for (;;) {
+    try {
+      return await fn();
+    } catch (e: unknown) {
+      const elapsed = Date.now() - start;
+      if (!isConnectionError(e)) throw e;
+      if (elapsed >= RETRY_MAX_TOTAL_MS) throw new Error("Error de conexión. Verifica tu internet.");
+      await new Promise((r) => setTimeout(r, RETRY_INTERVAL_MS));
+    }
+  }
+}
+
 export const authService = {
   async login(
     credentials: LoginForm,
@@ -12,24 +34,23 @@ export const authService = {
   ): Promise<AuthResponse> {
     try {
       console.log("[AUTH] login →", { email: credentials.email, rememberMe: options?.rememberMe });
-      const { data } = await api.post<AuthResponse>("/users/login/", {
-        email: credentials.email,
-        password: credentials.password,
-      });
+      const { data } = await withRetryOnConnection(() =>
+        api.post<AuthResponse>("/users/login/", {
+          email: credentials.email,
+          password: credentials.password,
+        })
+      );
       console.log("[AUTH] login success ←", { userId: data.user?.id });
-      if (options?.rememberMe !== false) {
+      // Solo persistir tokens cuando "Recordarme" está explícitamente marcado
+      if (options?.rememberMe === true) {
         await setStoredTokens(data.access, data.refresh);
       }
       return data;
     } catch (err: unknown) {
-      const e = err as { response?: { status?: number; data?: Record<string, unknown> } };
+      const e = err as { response?: { status?: number; data?: Record<string, unknown> }; code?: string };
       if (!e.response) {
-        const message =
-          (err as any)?.code === "ECONNABORTED"
-            ? "No se pudo conectar con el servidor. Verifica tu conexión a internet (tiempo de espera agotado)."
-            : "No se pudo conectar con el servidor. Verifica tu conexión a internet.";
         console.log("[AUTH] login network error ←", err);
-        throw new Error(message);
+        throw new Error("Error de conexión. Verifica tu internet.");
       }
       if (e.response?.status === 400) {
         const d = e.response.data;
@@ -65,21 +86,19 @@ export const authService = {
       if (userData.es_fragil_o_insuficiencia_cardiaca != null) {
         payload.es_fragil_o_insuficiencia_cardiaca = userData.es_fragil_o_insuficiencia_cardiaca;
       }
-      const { data } = await api.post<RegisterBackendResponse>("/users/register/", payload);
+      const { data } = await withRetryOnConnection(() =>
+        api.post<RegisterBackendResponse>("/users/register/", payload)
+      );
       console.log("[AUTH] register success ←", { userId: data.user?.id });
       const access = data.tokens.access;
       const refresh = data.tokens.refresh;
       await setStoredTokens(access, refresh);
       return { user: data.user, access, refresh };
     } catch (err: unknown) {
-      const e = err as { response?: { status?: number; data?: Record<string, unknown> } };
+      const e = err as { response?: { status?: number; data?: Record<string, unknown> }; code?: string };
       if (!e.response) {
-        const message =
-          (err as any)?.code === "ECONNABORTED"
-            ? "No se pudo conectar con el servidor. Verifica tu conexión a internet (tiempo de espera agotado)."
-            : "No se pudo conectar con el servidor. Verifica tu conexión a internet.";
         console.log("[AUTH] register network error ←", err);
-        throw new Error(message);
+        throw new Error("Error de conexión. Verifica tu internet.");
       }
       console.log("[AUTH] register server error ←", e.response?.status, e.response?.data);
       if (err instanceof Error) throw err;

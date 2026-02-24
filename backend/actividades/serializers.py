@@ -56,10 +56,11 @@ class ActividadSerializer(serializers.ModelSerializer):
         # El usuario se asigna automáticamente desde el request
         validated_data['usuario'] = self.context['request'].user
         
-        # Obtener coordenadas y datos climáticos si están disponibles
+        # Obtener coordenadas y zona horaria para datos climáticos
         request = self.context['request']
         latitude = request.data.get('latitude')
         longitude = request.data.get('longitude')
+        user_timezone = request.data.get('tz') or request.data.get('timezone')
         
         temperature = None
         humidity = None
@@ -74,7 +75,8 @@ class ActividadSerializer(serializers.ModelSerializer):
                 weather_data = weather_service.get_weather_data(
                     float(latitude),
                     float(longitude),
-                    activity_datetime
+                    activity_datetime,
+                    user_timezone=user_timezone
                 )
                 
                 if weather_data.get('success'):
@@ -108,10 +110,11 @@ class ActividadSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         """Actualiza una actividad y recalcula el PSE con factores climáticos."""
-        # Obtener coordenadas y datos climáticos si están disponibles
+        # Obtener coordenadas y zona horaria para datos climáticos
         request = self.context['request']
         latitude = request.data.get('latitude')
         longitude = request.data.get('longitude')
+        user_timezone = request.data.get('tz') or request.data.get('timezone')
         
         temperature = None
         humidity = None
@@ -126,7 +129,8 @@ class ActividadSerializer(serializers.ModelSerializer):
                 weather_data = weather_service.get_weather_data(
                     float(latitude),
                     float(longitude),
-                    fecha_hora
+                    fecha_hora,
+                    user_timezone=user_timezone
                 )
                 
                 if weather_data.get('success'):
@@ -187,10 +191,11 @@ class ActividadCreateSerializer(serializers.ModelSerializer):
         if 'fecha_hora' not in validated_data:
             validated_data['fecha_hora'] = timezone.now()
         
-        # Obtener coordenadas y datos climáticos si están disponibles
+        # Obtener coordenadas y zona horaria para datos climáticos
         request = self.context['request']
         latitude = request.data.get('latitude')
         longitude = request.data.get('longitude')
+        user_timezone = request.data.get('tz') or request.data.get('timezone')
         
         temperature = None
         humidity = None
@@ -205,7 +210,8 @@ class ActividadCreateSerializer(serializers.ModelSerializer):
                 weather_data = weather_service.get_weather_data(
                     float(latitude),
                     float(longitude),
-                    activity_datetime
+                    activity_datetime,
+                    user_timezone=user_timezone
                 )
                 
                 if weather_data.get('success'):

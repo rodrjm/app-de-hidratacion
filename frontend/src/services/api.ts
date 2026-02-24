@@ -47,11 +47,10 @@ class ApiService {
   private token: string | null = null;
 
   constructor() {
-    // Timeout aumentado a 35 segundos para dar tiempo al servidor de Render de despertar
-    // Render tarda ~30 segundos en cold start, así que 35s da un margen cómodo
+    // Timeout ~55s: Render (plan gratuito) puede tardar hasta ~50s en despertar
     const timeout = import.meta.env?.VITE_API_TIMEOUT 
       ? parseInt(import.meta.env.VITE_API_TIMEOUT, 10) 
-      : 35000; // 35 segundos por defecto para Render
+      : 55000; // 55 segundos por defecto para cold start de Render
     
     this.api = axios.create({
       baseURL: API_BASE_URL,
@@ -293,7 +292,6 @@ class ApiService {
       const message = (data && typeof data === 'object' && ('detail' in data ? String(data.detail) : 'message' in data ? String(data.message) : 'Error del servidor')) || 'Error del servidor';
       return new Error(message);
     } else if (err.request) {
-      // Error de red
       return new Error('Error de conexión. Verifica tu internet.');
     } else {
       // Error de configuración
