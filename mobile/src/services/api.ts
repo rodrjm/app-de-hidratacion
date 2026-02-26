@@ -62,6 +62,19 @@ export async function clearStoredTokens(): Promise<void> {
 // Timeout ~55s: backend en Render (plan gratuito) puede tardar hasta ~50s en despertar
 const API_TIMEOUT_MS = 55000;
 
+// Token en memoria para sesiones sin "Recordarme"
+// Este token se usa cuando el usuario hace login sin marcar "Recordarme",
+// para que las peticiones puedan autenticarse durante la sesión actual.
+let inMemoryAccessToken: string | null = null;
+
+export function setInMemoryToken(token: string | null): void {
+  inMemoryAccessToken = token;
+}
+
+export function getInMemoryToken(): string | null {
+  return inMemoryAccessToken;
+}
+
 // Variables para manejar concurrencia en el refresh de tokens
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: unknown) => void }> = [];
@@ -87,12 +100,14 @@ api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const method = (config.method || "GET").toUpperCase();
     const url = `${config.baseURL || ""}${config.url || ""}`;
-    console.log("[API] Request →", method, url, {
-      params: config.params,
-      data: config.data,
-    });
+    console.log("[API] Request →", method, url);
     if (!isPublicEndpoint(config.url)) {
-      const token = await getStoredToken();
+      // Primero intentar obtener el token de SecureStore (sesión persistida)
+      // Si no hay, usar el token en memoria (sesión temporal sin "Recordarme")
+      let token = await getStoredToken();
+      if (!token) {
+        token = inMemoryAccessToken;
+      }
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -107,12 +122,12 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response: AxiosResponse) => {
-    console.log(
-      "[API] Response ←",
-      response.status,
-      response.config.url,
-      typeof response.data === "string" ? response.data.slice(0, 200) : response.data
-    );
+    // Logueo simplificado para evitar imprimir objetos grandes en React Native
+    console.log(`[API] Response ← ${response.status} ${response.config?.url}`);
+
+    // Mantenemos el mismo contrato que antes: devolvemos el objeto Axios completo
+    // Si vieras que el crash persiste y tus llamadas siempre usan directamente response.data,
+    // podríamos considerar cambiar a "return response.data;" aquí.
     return response;
   },
   async (error) => {
