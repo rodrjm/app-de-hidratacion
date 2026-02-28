@@ -6,7 +6,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import { authService } from "../services/auth";
-import { clearStoredTokens } from "../services/api";
+import { clearStoredTokens, clearInMemoryTokens } from "../services/api";
 import { signInWithGoogle } from "../utils/googleAuth";
 import type { User } from "../types";
 
@@ -98,7 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await authService.login({ email, password }, options);
       setToken(res.access);
       setUser(res.user);
-      // Si "Recordarme" está desmarcado, borrar tokens guardados para no persistir sesión
+      // Si "Recordarme" está desmarcado, asegurarse de que no hay tokens persistidos
+      // (authService.login ya maneja guardar en memoria vs SecureStore)
       if (options?.rememberMe === false) {
         await clearStoredTokens();
       }

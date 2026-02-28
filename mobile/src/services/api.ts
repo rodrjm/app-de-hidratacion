@@ -62,17 +62,31 @@ export async function clearStoredTokens(): Promise<void> {
 // Timeout ~55s: backend en Render (plan gratuito) puede tardar hasta ~50s en despertar
 const API_TIMEOUT_MS = 55000;
 
-// Token en memoria para sesiones sin "Recordarme"
-// Este token se usa cuando el usuario hace login sin marcar "Recordarme",
-// para que las peticiones puedan autenticarse durante la sesión actual.
+// Tokens en memoria para sesiones sin "Recordarme"
+// Estos tokens se usan cuando el usuario hace login sin marcar "Recordarme",
+// para que las peticiones puedan autenticarse durante la sesión actual
+// y el refresh token también esté disponible para renovar el access token.
 let inMemoryAccessToken: string | null = null;
+let inMemoryRefreshToken: string | null = null;
 
-export function setInMemoryToken(token: string | null): void {
-  inMemoryAccessToken = token;
+export function setInMemoryTokens(access: string | null, refresh?: string | null): void {
+  inMemoryAccessToken = access;
+  if (refresh !== undefined) {
+    inMemoryRefreshToken = refresh;
+  }
 }
 
-export function getInMemoryToken(): string | null {
+export function getInMemoryAccessToken(): string | null {
   return inMemoryAccessToken;
+}
+
+export function getInMemoryRefreshToken(): string | null {
+  return inMemoryRefreshToken;
+}
+
+export function clearInMemoryTokens(): void {
+  inMemoryAccessToken = null;
+  inMemoryRefreshToken = null;
 }
 
 // Variables para manejar concurrencia en el refresh de tokens
@@ -106,7 +120,7 @@ api.interceptors.request.use(
       // Si no hay, usar el token en memoria (sesión temporal sin "Recordarme")
       let token = await getStoredToken();
       if (!token) {
-        token = inMemoryAccessToken;
+        token = getInMemoryAccessToken();
       }
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -163,11 +177,17 @@ api.interceptors.response.use(
       originalRequest._retried = true;
       isRefreshing = true;
 
-      const refreshToken = await getStoredRefreshToken();
+      // Intentar obtener refresh token de SecureStore primero, luego de memoria
+      let refreshToken = await getStoredRefreshToken();
+      const isPersistedSession = !!refreshToken;
+      if (!refreshToken) {
+        refreshToken = getInMemoryRefreshToken();
+      }
 
       if (!refreshToken) {
         isRefreshing = false;
         await clearStoredTokens();
+        clearInMemoryTokens();
         return Promise.reject(error);
       }
 
@@ -179,7 +199,12 @@ api.interceptors.response.use(
         );
 
         if (data.access) {
-          await setStoredTokens(data.access, data.refresh ?? undefined);
+          // Guardar tokens según el tipo de sesión original
+          if (isPersistedSession) {
+            await setStoredTokens(data.access, data.refresh ?? undefined);
+          } else {
+            setInMemoryTokens(data.access, data.refresh ?? undefined);
+          }
           api.defaults.headers.common["Authorization"] = `Bearer ${data.access}`;
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${data.access}`;
@@ -196,6 +221,7 @@ api.interceptors.response.use(
 
         if (refreshStatus === 401) {
           await clearStoredTokens();
+          clearInMemoryTokens();
         }
         return Promise.reject(refreshErr);
       } finally {
