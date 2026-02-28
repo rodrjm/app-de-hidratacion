@@ -62,15 +62,27 @@ export default class ErrorBoundary extends Component<Props, State> {
                 </Text>
               </TouchableOpacity>
 
-              {__DEV__ && this.state.error && (
+              {/* Mostrar siempre el error para debugging - TODO: quitar en producción final */}
+              {this.state.error && (
                 <View className="bg-neutral-100 rounded-lg p-4 w-full mt-4">
-                  <Text className="text-xs font-mono text-error mb-2">
+                  <Text className="text-xs font-bold text-error mb-2">
+                    Error:
+                  </Text>
+                  <Text className="text-xs font-mono text-error mb-2" selectable>
                     {this.state.error.toString()}
                   </Text>
+                  <Text className="text-xs font-mono text-neutral-700 mb-2" selectable>
+                    {this.state.error.message}
+                  </Text>
                   {this.state.errorInfo && (
-                    <Text className="text-xs font-mono text-neutral-600">
-                      {this.state.errorInfo.componentStack?.slice(0, 500)}
-                    </Text>
+                    <>
+                      <Text className="text-xs font-bold text-neutral-700 mt-2 mb-1">
+                        Component Stack:
+                      </Text>
+                      <Text className="text-xs font-mono text-neutral-600" selectable>
+                        {this.state.errorInfo.componentStack?.slice(0, 800)}
+                      </Text>
+                    </>
                   )}
                 </View>
               )}
