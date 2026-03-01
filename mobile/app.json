@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dosis Vital",
     "slug": "mobile",
-    "version": "1.1.10",
+    "version": "1.1.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,7 @@
       "usesCleartextTraffic": true,
       "permissions": ["RECEIVE_BOOT_COMPLETED"],
       "package": "com.dosisvital.app",
-      "versionCode": 21
+      "versionCode": 22
     },
     "scheme": "dosisvital",
     "plugins": [

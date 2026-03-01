@@ -27,9 +27,9 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
     <FlexWidget
       style={{
         width: "match_parent",
-        height: "wrap_content", // clave para que el widget respete el contenido y pueda ser 2x2
+        height: "wrap_content",
         flexDirection: "column",
-        padding: 16,
+        padding: 8,
         backgroundColor: COLORS.background,
         borderRadius: 20,
         justifyContent: "flex-start",
@@ -41,19 +41,19 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 8,
+          marginBottom: 4,
         }}
       >
         <TextWidget
           text="Progreso de hidratación"
-          style={{ fontSize: 16, fontWeight: "700", color: COLORS.meta }}
+          style={{ fontSize: 14, fontWeight: "700", color: COLORS.meta }}
         />
         <TextWidget
           text="¡Vamos! Tu cuerpo necesita hidratación 💧"
           style={{
-            fontSize: 11,
+            fontSize: 10,
             color: COLORS.label,
-            marginTop: 4,
+            marginTop: 2,
             textAlign: "center",
           }}
         />
@@ -65,32 +65,32 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 6,
+          marginBottom: 2,
         }}
       >
         <TextWidget
           text="Hidratación efectiva"
-          style={{ fontSize: 11, fontWeight: "600", color: COLORS.meta }}
+          style={{ fontSize: 10, fontWeight: "600", color: COLORS.meta }}
         />
         <TextWidget
           text={`${porcentaje}%`}
-          style={{ fontSize: 11, fontWeight: "600", color: COLORS.label }}
+          style={{ fontSize: 10, fontWeight: "600", color: COLORS.label }}
         />
       </FlexWidget>
 
       <FlexWidget
         style={{
           width: "match_parent",
-          height: 8,
-          borderRadius: 4,
+          height: 6,
+          borderRadius: 3,
           backgroundColor: COLORS.border,
           overflow: "hidden",
         }}
       >
         <FlexWidget
           style={{
-            height: 8,
-            borderRadius: 4,
+            height: 6,
+            borderRadius: 3,
             backgroundColor: COLORS.consumido,
             width: `${porcentaje}%`,
           }}
@@ -103,8 +103,9 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
-          marginTop: 10,
-          padding: 12,
+          marginTop: 6,
+          paddingVertical: 6,
+          paddingHorizontal: 8,
           borderWidth: 1,
           borderColor: COLORS.border,
           borderRadius: 16,
@@ -120,11 +121,11 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         >
           <TextWidget
             text={`${consumido} ml`}
-            style={{ fontSize: 14, fontWeight: "700", color: COLORS.consumido }}
+            style={{ fontSize: 12, fontWeight: "700", color: COLORS.consumido }}
           />
           <TextWidget
             text="Consumido"
-            style={{ fontSize: 10, color: COLORS.label, marginTop: 2 }}
+            style={{ fontSize: 9, color: COLORS.label, marginTop: 1 }}
           />
         </FlexWidget>
 
@@ -132,7 +133,7 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         <FlexWidget
           style={{
             width: 1,
-            height: 32,
+            height: 24,
             backgroundColor: COLORS.border,
             marginHorizontal: 4,
           }}
@@ -148,11 +149,11 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         >
           <TextWidget
             text={`${meta} ml`}
-            style={{ fontSize: 14, fontWeight: "700", color: COLORS.meta }}
+            style={{ fontSize: 12, fontWeight: "700", color: COLORS.meta }}
           />
           <TextWidget
             text="Meta diaria"
-            style={{ fontSize: 10, color: COLORS.label, marginTop: 2 }}
+            style={{ fontSize: 9, color: COLORS.label, marginTop: 1 }}
           />
         </FlexWidget>
 
@@ -160,7 +161,7 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         <FlexWidget
           style={{
             width: 1,
-            height: 32,
+            height: 24,
             backgroundColor: COLORS.border,
             marginHorizontal: 4,
           }}
@@ -176,11 +177,11 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         >
           <TextWidget
             text={`${restante} ml`}
-            style={{ fontSize: 14, fontWeight: "700", color: COLORS.restante }}
+            style={{ fontSize: 12, fontWeight: "700", color: COLORS.restante }}
           />
           <TextWidget
             text="Restante"
-            style={{ fontSize: 10, color: COLORS.label, marginTop: 2 }}
+            style={{ fontSize: 9, color: COLORS.label, marginTop: 1 }}
           />
         </FlexWidget>
       </FlexWidget>
@@ -191,15 +192,15 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           flexDirection: "row",
           justifyContent: "center",
           alignItems: "center",
-          marginTop: 10,
-          columnGap: 16,
+          marginTop: 6,
+          columnGap: 12,
         }}
       >
         <FlexWidget
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
+            width: 36,
+            height: 36,
+            borderRadius: 18,
             backgroundColor: COLORS.buttonWater,
             alignItems: "center",
             justifyContent: "center",
@@ -207,13 +208,13 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           clickAction="OPEN_URI"
           clickActionData={{ uri: "dosisvital://add-water" }}
         >
-          <TextWidget text="💧" style={{ fontSize: 24 }} />
+          <TextWidget text="💧" style={{ fontSize: 18 }} />
         </FlexWidget>
         <FlexWidget
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
+            width: 36,
+            height: 36,
+            borderRadius: 18,
             backgroundColor: COLORS.buttonActivity,
             alignItems: "center",
             justifyContent: "center",
@@ -221,7 +222,7 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           clickAction="OPEN_URI"
           clickActionData={{ uri: "dosisvital://add-activity" }}
         >
-          <TextWidget text="🚶" style={{ fontSize: 24 }} />
+          <TextWidget text="🚶" style={{ fontSize: 18 }} />
         </FlexWidget>
       </FlexWidget>
     </FlexWidget>
