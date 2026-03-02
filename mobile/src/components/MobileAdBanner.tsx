@@ -34,6 +34,11 @@ export default function MobileAdBanner({ placement }: MobileAdBannerProps) {
   }
 
   // Carga dinámica: solo cuando no estamos en Expo Go (evita TurboModuleRegistry.getEnforcing)
-  const MobileAdBannerNative = require("./MobileAdBannerNative").default;
-  return <MobileAdBannerNative placement={placement} />;
+  try {
+    const MobileAdBannerNative = require("./MobileAdBannerNative").default;
+    return <MobileAdBannerNative placement={placement} />;
+  } catch (e) {
+    console.log("[MobileAdBanner] Error cargando AdMob:", e);
+    return null;
+  }
 }

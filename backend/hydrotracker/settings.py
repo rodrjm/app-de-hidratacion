@@ -84,6 +84,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'hydrotracker.middleware.RetryDbOperationalErrorOnSafeMethodsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -122,7 +123,8 @@ if DATABASE_URL and DATABASE_URL.strip():
     # MODO PRODUCCIÓN (Neon/Render/Heroku) - usa DATABASE_URL
     try:
         # Parsear la URL de la base de datos
-        db_config = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+        db_conn_max_age = config('DB_CONN_MAX_AGE', default=60, cast=int)
+        db_config = dj_database_url.parse(DATABASE_URL, conn_max_age=db_conn_max_age)
         
         # Detectar si es una conexión PostgreSQL (no SQLite)
         is_postgres = db_config.get('ENGINE') == 'django.db.backends.postgresql' or \

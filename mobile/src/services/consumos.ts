@@ -8,6 +8,8 @@ import type {
   PaginatedResponse,
   Recordatorio,
   RecordatorioForm,
+  Tendencias,
+  Insights,
 } from "../types";
 
 // Servicio de consumos, bebidas y recipientes (adaptado desde el frontend web)

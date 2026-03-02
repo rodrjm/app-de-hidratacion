@@ -199,9 +199,29 @@ export default function AddConsumoScreen() {
         console.log("[AddConsumo] Error actualizando widget:", e);
       }
       navigation.goBack();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Error al registrar consumo.";
-      showAlert({ title: "Error", message: msg, variant: "danger" });
+    } catch (e: unknown) {
+      let message = "Error al registrar consumo.";
+      const anyErr = e as { response?: { status?: number; data?: any } };
+      const status = anyErr.response?.status;
+      const data = anyErr.response?.data;
+
+      if (status === 400 && data && typeof data === "object") {
+        if (typeof data.detail === "string") {
+          message = data.detail;
+        } else {
+          const firstField = Object.keys(data)[0];
+          const fieldErrors = firstField ? data[firstField] : null;
+          if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+            message = String(fieldErrors[0]);
+          } else if (typeof fieldErrors === "string") {
+            message = fieldErrors;
+          }
+        }
+      } else if (e instanceof Error && e.message) {
+        message = e.message;
+      }
+
+      showAlert({ title: "Error", message, variant: "danger" });
     } finally {
       setSubmitting(false);
     }

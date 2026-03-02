@@ -33,6 +33,7 @@ import ChangePasswordScreen from "./src/screens/ChangePasswordScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import Toast from "react-native-toast-message";
 import MobileAdBanner from "./src/components/MobileAdBanner";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -304,15 +305,17 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <AppAlertProvider>
-          <NavigationContainer linking={linking}>
-            <StatusBar style="dark" />
-            <RootNavigator />
-            <Toast />
-          </NavigationContainer>
-        </AppAlertProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <AppAlertProvider>
+            <NavigationContainer linking={linking}>
+              <StatusBar style="dark" />
+              <RootNavigator />
+              <Toast />
+            </NavigationContainer>
+          </AppAlertProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

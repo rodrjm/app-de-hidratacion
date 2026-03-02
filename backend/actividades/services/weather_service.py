@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple
 from zoneinfo import ZoneInfo
 from django.utils import timezone
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -90,24 +91,36 @@ class WeatherService:
             # para que la respuesta horaria coincida con el día del usuario.
             date_str = activity_datetime_local.strftime('%Y-%m-%d')
             
-            # Construir URL de la API
-            url = f"{self.BASE_URL}"
-            params = {
-                'latitude': latitude,
-                'longitude': longitude,
-                'hourly': 'temperature_2m,relative_humidity_2m',
-                'timezone': 'auto',
-                'start_date': date_str,
-                'end_date': date_str
-            }
-            
-            logger.info(f'Consultando Open-Meteo: lat={latitude}, lon={longitude}, fecha={date_str}')
-            
-            # Hacer petición a la API
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
+            # Clave de caché por lat/lon/fecha para reducir llamadas a Open-Meteo
+            cache_key = f"weather:{round(latitude, 4)}:{round(longitude, 4)}:{date_str}"
+            data = cache.get(cache_key)
+            if data is not None:
+                logger.debug(f"WeatherService cache HIT: {cache_key}")
+            else:
+                # Construir URL de la API
+                url = f"{self.BASE_URL}"
+                params = {
+                    'latitude': latitude,
+                    'longitude': longitude,
+                    'hourly': 'temperature_2m,relative_humidity_2m',
+                    'timezone': 'auto',
+                    'start_date': date_str,
+                    'end_date': date_str
+                }
+                
+                logger.info(f'Consultando Open-Meteo: lat={latitude}, lon={longitude}, fecha={date_str}')
+                
+                # Hacer petición a la API
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
+                
+                data = response.json()
+                # Cachear por ~30 minutos para evitar 429 y mejorar performance
+                try:
+                    cache.set(cache_key, data, timeout=1800)
+                    logger.debug(f"WeatherService cache SET: {cache_key}")
+                except Exception:
+                    logger.debug(f"No se pudo cachear respuesta de Open-Meteo para {cache_key}")
             
             # Extraer arrays de datos horarios
             hourly = data.get('hourly', {})

@@ -1,7 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { BannerAd, BannerAdSize, TestIds } from "react-native-google-mobile-ads";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 
 type MobileAdPlacement = "footer" | "dashboard_history" | "profile";
@@ -16,7 +16,7 @@ interface MobileAdBannerNativeProps {
  */
 export default function MobileAdBannerNative({ placement }: MobileAdBannerNativeProps) {
   const { user } = useAuth();
-  const tabBarHeight = useBottomTabBarHeight?.() ?? 0;
+  const insets = useSafeAreaInsets();
 
   if (!user || user.es_premium) {
     return null;
@@ -37,10 +37,8 @@ export default function MobileAdBannerNative({ placement }: MobileAdBannerNative
   const unitId = getUnitId();
 
   if (placement === "footer") {
-    // Cuando se usa globalmente (como en MainTabs), anclamos el banner justo por encima
-    // del Bottom Tab Navigator usando su altura real. Si por algún motivo no hay tab bar,
-    // usamos bottom: 0 para pegarlo al borde inferior del contenedor.
-    const bottom = tabBarHeight > 0 ? tabBarHeight : 0;
+    const extraBottom = Math.max(insets.bottom, 0);
+    const TAB_BAR_TOTAL_HEIGHT = 64 + extraBottom;
 
     return (
       <View
@@ -49,7 +47,7 @@ export default function MobileAdBannerNative({ placement }: MobileAdBannerNative
           position: "absolute",
           left: 0,
           right: 0,
-          bottom,
+          bottom: TAB_BAR_TOTAL_HEIGHT,
           alignItems: "center",
         }}
       >

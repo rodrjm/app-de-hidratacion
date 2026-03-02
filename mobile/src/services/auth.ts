@@ -2,7 +2,7 @@
  * Servicio de autenticación para la app móvil.
  * Usa api (axios con token desde SecureStore) y persiste tokens con setStoredTokens/clearStoredTokens.
  */
-import api, { setStoredTokens, clearStoredTokens, getStoredRefreshToken } from "./api";
+import api, { setStoredTokens, clearStoredTokens, getStoredRefreshToken, setInMemoryTokens, clearInMemoryTokens } from "./api";
 import type { User, LoginForm, RegisterForm, AuthResponse, RegisterBackendResponse } from "../types";
 
 const RETRY_INTERVAL_MS = 5000;
@@ -41,9 +41,13 @@ export const authService = {
         })
       );
       console.log("[AUTH] login success ←", { userId: data.user?.id });
-      // Solo persistir tokens cuando "Recordarme" está explícitamente marcado
+      // Persistir tokens según la opción "Recordarme"
       if (options?.rememberMe === true) {
+        // Guardar en SecureStore para persistencia entre sesiones
         await setStoredTokens(data.access, data.refresh);
+      } else {
+        // Guardar en memoria para la sesión actual (access + refresh para poder renovar)
+        setInMemoryTokens(data.access, data.refresh);
       }
       return data;
     } catch (err: unknown) {
@@ -117,6 +121,7 @@ export const authService = {
       // ignore
     } finally {
       await clearStoredTokens();
+      clearInMemoryTokens();
       console.log("[AUTH] logout done");
     }
   },
