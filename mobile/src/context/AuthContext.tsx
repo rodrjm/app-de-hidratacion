@@ -12,6 +12,15 @@ import type { User } from "../types";
 
 const TOKEN_KEY = "access_token";
 
+function getHttpStatus(err: unknown): number | null {
+  const e = err as { response?: { status?: number } };
+  return typeof e?.response?.status === "number" ? e.response.status : null;
+}
+
+function isAuthFailureStatus(status: number | null): boolean {
+  return status === 401 || status === 403;
+}
+
 interface AuthContextValue {
   user: User | null;
   token: string | null;
@@ -53,8 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("[AuthContext] refreshUser success ←", { userId: u?.id });
     } catch (e) {
       console.log("[AuthContext] refreshUser error ←", e);
-      setUser(null);
-      setToken(null);
+      const status = getHttpStatus(e);
+      // Solo invalidar sesión si el token ya no es válido (401/403).
+      // Para errores transitorios (500 / red / Neon), mantener token y usuario actual.
+      if (isAuthFailureStatus(status)) {
+        await clearStoredTokens();
+        clearInMemoryTokens();
+        setUser(null);
+        setToken(null);
+      }
     }
   }, []);
 
@@ -67,16 +83,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         if (t) {
           setToken(t);
-          const u = await authService.getCurrentUser();
-          if (cancelled) return;
-          setUser(u);
-          console.log("[AuthContext] bootstrap success ←", { userId: u?.id });
+          try {
+            const u = await authService.getCurrentUser();
+            if (cancelled) return;
+            setUser(u);
+            console.log("[AuthContext] bootstrap success ←", { userId: u?.id });
+          } catch (profileErr) {
+            const status = getHttpStatus(profileErr);
+            console.log("[AuthContext] bootstrap profile error ←", profileErr);
+            // Si el token es inválido, limpiar sesión. Si es un fallo transitorio (Neon/red),
+            // conservar token para que "Recordarme" no se rompa y permitir reintento posterior.
+            if (isAuthFailureStatus(status)) {
+              await clearStoredTokens();
+              clearInMemoryTokens();
+              if (!cancelled) setToken(null);
+              if (!cancelled) setUser(null);
+            } else {
+              if (!cancelled) setUser(null);
+            }
+          }
         } else {
           setUser(null);
         }
       } catch (e) {
         console.log("[AuthContext] bootstrap error ←", e);
-        if (!cancelled) setToken(null);
+        // No borrar tokens por fallos transitorios durante bootstrap (p.ej. DB/SSL en Neon).
+        // Si hubiera un problema real de auth, se limpiará al intentar getCurrentUser().
         if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setIsLoading(false);

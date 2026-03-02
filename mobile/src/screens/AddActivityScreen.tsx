@@ -360,8 +360,16 @@ export default function AddActivityScreen() {
                   ? ` (Incluye ajuste por clima ☀️ ${estimate.climate_adjustment})`
                   : ""}
               </Text>
-              {(estimate.weather_message != null && estimate.weather_message !== "") && (
-                <Text className="text-sm text-neutral-600 mt-2">{estimate.weather_message}</Text>
+              {estimate.weather_message && estimate.weather_message !== "" && (
+                <Text className="text-sm text-neutral-600 mt-2">
+                  {estimate.weather_message}
+                </Text>
+              )}
+              {!estimate.climate_adjustment && (!estimate.weather_message || estimate.weather_message === "") && (
+                <Text className="text-xs text-neutral-500 mt-2">
+                  El clima no está disponible en este momento (por ejemplo, límite diario de la API de clima alcanzado). 
+                  Usamos un ajuste neutro para no afectar tu meta.
+                </Text>
               )}
             </>
           )}
