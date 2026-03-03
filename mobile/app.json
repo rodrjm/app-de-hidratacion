@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dosis Vital",
     "slug": "mobile",
-    "version": "1.1.13",
+    "version": "1.1.14",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,7 @@
       "usesCleartextTraffic": true,
       "permissions": ["RECEIVE_BOOT_COMPLETED"],
       "package": "com.dosisvital.app",
-      "versionCode": 24
+      "versionCode": 25
     },
     "scheme": "dosisvital",
     "plugins": [
@@ -61,9 +61,7 @@
               "minHeight": "110dp",
               "targetCellWidth": 2,
               "targetCellHeight": 2,
-              "maxResizeWidth": "250dp",
-              "maxResizeHeight": "110dp",
-              "resizeMode": "horizontal|vertical",
+              "resizeMode": "horizontal",
               "updatePeriodMillis": 1800000
             }
           ]

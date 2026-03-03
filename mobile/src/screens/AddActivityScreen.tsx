@@ -237,7 +237,16 @@ export default function AddActivityScreen() {
           keyboardShouldPersistTaps="handled"
         >
         <View className="flex-row items-center mb-4">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3 p-2 -ml-2">
+          <TouchableOpacity
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate("MainTabs");
+              }
+            }}
+            className="mr-3 p-2 -ml-2"
+          >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
           <View className="w-10 h-10 rounded-full bg-accent-100 items-center justify-center mr-3">
