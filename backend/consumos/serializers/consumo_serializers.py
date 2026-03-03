@@ -93,21 +93,49 @@ class ConsumoCreateSerializer(serializers.ModelSerializer):
 
     def validate_fecha_hora(self, value):
         """
-        Valida que la fecha no sea futura.
-        La fecha se normaliza al día actual (solo se considera la hora enviada).
+        Valida que la fecha no sea futura desde la perspectiva del usuario.
+        - Usa la zona horaria enviada en el request (?tz=America/Argentina/Buenos_Aires) si está disponible.
+        - Normaliza el día al "hoy" del usuario (no al timezone del servidor).
+        - Permite registros históricos dentro del mismo día, pero no permite horas futuras.
         Si la fecha viene sin zona horaria (naive), se asume que es UTC.
         """
         if value is None:
             return value
-        # Si la fecha es naive (sin timezone), asumir que es UTC
+
+        request = self.context.get('request')
+
+        # Resolver timezone del usuario, similar a ConsumoSerializer._get_user_timezone
+        user_tz = None
+        if request:
+            tz_name = request.query_params.get('tz')
+            if tz_name:
+                try:
+                    user_tz = ZoneInfo(tz_name)
+                except (ValueError, KeyError):
+                    user_tz = None
+        if user_tz is None:
+            user_tz = timezone.get_current_timezone()
+
+        # Asegurar que value es aware
         if timezone.is_naive(value):
             value = timezone.make_aware(value, timezone.utc)
-        # Fuerza la fecha al día actual (solo el usuario puede cambiar la hora de hoy)
-        now = timezone.now()
-        value = value.replace(year=now.year, month=now.month, day=now.day)
-        if value > now:
+
+        # Trabajar en la zona horaria del usuario
+        value_local = value.astimezone(user_tz)
+        now_local = timezone.now().astimezone(user_tz)
+
+        # Forzar la fecha al día actual del usuario, conservando la hora elegida
+        value_local = value_local.replace(
+            year=now_local.year,
+            month=now_local.month,
+            day=now_local.day,
+        )
+
+        if value_local > now_local:
             raise serializers.ValidationError("La fecha no puede ser futura")
-        return value
+
+        # Guardar en base de datos en UTC (o TZ por defecto de Django)
+        return value_local.astimezone(timezone.utc)
 
     def create(self, validated_data):
         if validated_data.get('fecha_hora') is None:
