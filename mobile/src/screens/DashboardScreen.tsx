@@ -32,7 +32,7 @@ const TIPO_LABELS: Record<string, string> = {
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
-  const { user } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
   const [stats, setStats] = useState<EstadisticasDiarias | null>(null);
   const [actividadesHoy, setActividadesHoy] = useState<Actividad[]>([]);
@@ -72,6 +72,14 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  // Si tenemos token pero aún no hay datos de usuario (p.ej. fallo transitorio del backend),
+  // intentar refrescar el perfil al entrar al Dashboard.
+  useEffect(() => {
+    if (token && !user) {
+      refreshUser().catch(() => {});
+    }
+  }, [token, user, refreshUser]);
 
   // Recalcular estadísticas cuando cambie el peso del usuario, de modo que la meta diaria
   // se actualice automáticamente después de editar el perfil sin necesidad de refrescar manualmente.
