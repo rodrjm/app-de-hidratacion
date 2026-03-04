@@ -331,7 +331,7 @@ export default function DashboardScreen() {
                   <View className="flex-row items-center">
                     <Ionicons name="water-outline" size={20} color="#FFFFFF" />
                     <Text className="text-white font-display font-bold text-sm ml-2">
-                      Registrar Consumo
+                      Registrar consumo
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -342,7 +342,7 @@ export default function DashboardScreen() {
                   <View className="flex-row items-center">
                     <Ionicons name="walk-outline" size={20} color="#FFFFFF" />
                     <Text className="text-white font-display font-bold text-sm ml-2">
-                      Registrar Actividad
+                      Registrar actividad
                     </Text>
                   </View>
                 </TouchableOpacity>
