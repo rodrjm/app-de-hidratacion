@@ -10,12 +10,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { bebidasService, recipientesService, consumosService } from "../services/consumos";
 import { useAuth } from "../context/AuthContext";
 import { useAppAlert } from "../context/AppAlertContext";
+import { useOfflineStore, type PendingConsumoForm } from "../store/useOfflineStore";
+import { isLikelyNetworkError, OFFLINE_QUEUED_USER_MESSAGE } from "../utils/networkErrors";
 import HeaderAppLogo from "../components/HeaderAppLogo";
 import SugerirBebidaModal from "../components/SugerirBebidaModal";
 import type { Bebida, Recipiente, Consumo } from "../types";
@@ -41,6 +44,7 @@ export default function AddConsumoScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const currentUserId = user?.id;
   const { showAlert } = useAppAlert();
   const consumoEditar: Consumo | undefined = route.params?.consumo;
   const [bebidas, setBebidas] = useState<Bebida[]>([]);
@@ -154,6 +158,9 @@ export default function AddConsumoScreen() {
     }
     if (!bebidaId) return;
     setSubmitting(true);
+
+    let createPayload: Parameters<typeof consumosService.createConsumo>[0] | null = null;
+
     try {
       if (consumoEditar) {
         const payload: Parameters<typeof consumosService.updateConsumo>[1] = {
@@ -172,7 +179,7 @@ export default function AddConsumoScreen() {
         showAlert({ title: "Listo", message: "Consumo actualizado exitosamente.", variant: "success" });
       } else {
         const today = new Date();
-        const createPayload: Parameters<typeof consumosService.createConsumo>[0] = {
+        createPayload = {
           bebida: bebidaId!,
           cantidad_ml: cantidad,
           recipiente: cantidadMode === "recipiente" && recipienteId != null ? recipienteId : null,
@@ -180,6 +187,29 @@ export default function AddConsumoScreen() {
             ? new Date().toISOString()
             : parseTimeToDate(today, horaConsumoStr).toISOString(),
         };
+
+        if (currentUserId == null) {
+          showAlert({
+            title: "Error",
+            message: "No se pudo identificar tu usuario. Vuelve a iniciar sesión e intenta de nuevo.",
+            variant: "danger",
+          });
+          return;
+        }
+        const offlineRow: PendingConsumoForm = { ...createPayload, userId: currentUserId };
+
+        const net = await NetInfo.fetch();
+        if (net.isConnected === false) {
+          useOfflineStore.getState().addPendingConsumo(offlineRow);
+          showAlert({
+            title: "Sin conexión",
+            message: OFFLINE_QUEUED_USER_MESSAGE,
+            variant: "success",
+          });
+          navigation.goBack();
+          return;
+        }
+
         await consumosService.createConsumo(createPayload);
         showAlert({ title: "Listo", message: "Consumo registrado exitosamente.", variant: "success" });
       }
@@ -200,7 +230,18 @@ export default function AddConsumoScreen() {
       }
       navigation.goBack();
     } catch (e: unknown) {
-      let message = "Error al registrar consumo.";
+      if (!consumoEditar && createPayload && currentUserId != null && isLikelyNetworkError(e)) {
+        useOfflineStore.getState().addPendingConsumo({ ...createPayload, userId: currentUserId });
+        showAlert({
+          title: "Sin conexión",
+          message: OFFLINE_QUEUED_USER_MESSAGE,
+          variant: "success",
+        });
+        navigation.goBack();
+        return;
+      }
+
+      let message = consumoEditar ? "Error al actualizar consumo." : "Error al registrar consumo.";
       const anyErr = e as { response?: { status?: number; data?: any } };
       const status = anyErr.response?.status;
       const data = anyErr.response?.data;

@@ -42,6 +42,15 @@ export const consumosService = {
     return data;
   },
 
+  async syncOfflineConsumos(consumos: ConsumoForm[]): Promise<Consumo[]> {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const tz_offset_minutes = new Date().getTimezoneOffset();
+    const { data } = await api.post<Consumo[]>("/consumos/bulk/", consumos, {
+      params: { tz, tz_offset_minutes },
+    });
+    return data;
+  },
+
   async updateConsumo(id: number, consumo: Partial<ConsumoForm>): Promise<Consumo> {
     const { data } = await api.put<Consumo>(`/consumos/${id}/`, consumo);
     return data;

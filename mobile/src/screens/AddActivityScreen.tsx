@@ -11,12 +11,16 @@ import {
   Platform,
 } from "react-native";
 import * as Location from "expo-location";
+import NetInfo from "@react-native-community/netinfo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { activitiesService, getEstadisticasDiarias } from "../services/activities";
 import { useAuth } from "../context/AuthContext";
 import { useAppAlert } from "../context/AppAlertContext";
+import { useOfflineStore } from "../store/useOfflineStore";
+import type { PendingActivityForm } from "../store/useOfflineStore";
+import { isLikelyNetworkError, OFFLINE_QUEUED_USER_MESSAGE } from "../utils/networkErrors";
 import HeaderAppLogo from "../components/HeaderAppLogo";
 import SugerirActividadModal from "../components/SugerirActividadModal";
 import type { TipoActividad, Intensidad, Actividad } from "../types";
@@ -69,6 +73,7 @@ export default function AddActivityScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const currentUserId = user?.id;
   const { showAlert } = useAppAlert();
   const actividadEditar: Actividad | undefined = route.params?.actividad;
   const [showSugerirModal, setShowSugerirModal] = useState(false);
@@ -183,6 +188,9 @@ export default function AddActivityScreen() {
       return;
     }
     setSubmitLoading(true);
+
+    let createPayload: PendingActivityForm | null = null;
+
     try {
       const payload = {
         tipo_actividad: tipo,
@@ -195,7 +203,38 @@ export default function AddActivityScreen() {
         await activitiesService.update(actividadEditar.id, payload);
         showAlert({ title: "Listo", message: "Actividad actualizada. Tu meta de hidratación se recalculó.", variant: "activity" });
       } else {
-        await activitiesService.create(payload);
+        if (currentUserId == null) {
+          showAlert({
+            title: "Error",
+            message: "No se pudo identificar tu usuario. Vuelve a iniciar sesión e intenta de nuevo.",
+            variant: "danger",
+          });
+          return;
+        }
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const apiPayload = {
+          tipo_actividad: tipo,
+          duracion_minutos: duracion,
+          intensidad,
+          fecha_hora: activityDt.toISOString(),
+          ...(location && { latitude: location.lat, longitude: location.lon }),
+          tz,
+        };
+        createPayload = { ...apiPayload, userId: currentUserId };
+
+        const net = await NetInfo.fetch();
+        if (net.isConnected === false) {
+          useOfflineStore.getState().addPendingActivity(createPayload);
+          showAlert({
+            title: "Sin conexión",
+            message: OFFLINE_QUEUED_USER_MESSAGE,
+            variant: "activity",
+          });
+          navigation.goBack();
+          return;
+        }
+
+        await activitiesService.create(apiPayload);
         showAlert({ title: "Listo", message: "Actividad registrada. Tu meta de hidratación se actualizó.", variant: "activity" });
       }
       setDuracionMinutos("30");
@@ -218,7 +257,18 @@ export default function AddActivityScreen() {
       }
       navigation.goBack();
     } catch (e: unknown) {
-      const msg = e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "Error al guardar";
+      if (!actividadEditar && createPayload && currentUserId != null && isLikelyNetworkError(e)) {
+        useOfflineStore.getState().addPendingActivity({ ...createPayload, userId: currentUserId });
+        showAlert({
+          title: "Sin conexión",
+          message: OFFLINE_QUEUED_USER_MESSAGE,
+          variant: "activity",
+        });
+        navigation.goBack();
+        return;
+      }
+      const msg =
+        e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "Error al guardar";
       showAlert({ title: "Error", message: msg, variant: "danger" });
     } finally {
       setSubmitLoading(false);
