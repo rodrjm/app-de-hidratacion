@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Q
 from datetime import date, timedelta, datetime as dt
 from .models import Actividad
@@ -193,4 +194,39 @@ class ActividadViewSet(viewsets.ModelViewSet):
             'weather_message': weather_message,
             'climate_adjustment': climate_adjustment,
         })
+
+    @action(detail=False, methods=['post'], url_path='bulk')
+    def bulk(self, request):
+        """
+        Crea varias actividades en lote. PSE y clima por registro;
+        actualización de meta de hidratación una sola vez al final.
+        """
+        if not isinstance(request.data, list):
+            return Response(
+                {'error': 'Se espera un array de actividades.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        for item in request.data:
+            if not isinstance(item, dict):
+                return Response(
+                    {'error': 'Cada elemento debe ser un objeto.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        base_context = self.get_serializer_context()
+        instances = []
+        with transaction.atomic():
+            for item in request.data:
+                serializer = ActividadCreateSerializer(
+                    data=item,
+                    context={
+                        **base_context,
+                        'skip_meta_update': True,
+                        'activity_request_data': item,
+                    },
+                )
+                serializer.is_valid(raise_exception=True)
+                instances.append(serializer.save())
+            request.user.actualizar_meta_hidratacion_con_actividades()
+        out = ActividadSerializer(instances, many=True, context=base_context)
+        return Response(out.data, status=status.HTTP_201_CREATED)
 

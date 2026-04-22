@@ -191,11 +191,17 @@ class ActividadCreateSerializer(serializers.ModelSerializer):
         if 'fecha_hora' not in validated_data:
             validated_data['fecha_hora'] = timezone.now()
         
-        # Obtener coordenadas y zona horaria para datos climáticos
+        # Obtener coordenadas y zona horaria (por ítem en bulk via activity_request_data)
         request = self.context['request']
-        latitude = request.data.get('latitude')
-        longitude = request.data.get('longitude')
-        user_timezone = request.data.get('tz') or request.data.get('timezone')
+        item_payload = self.context.get('activity_request_data')
+        if item_payload is not None:
+            latitude = item_payload.get('latitude')
+            longitude = item_payload.get('longitude')
+            user_timezone = item_payload.get('tz') or item_payload.get('timezone')
+        else:
+            latitude = request.data.get('latitude')
+            longitude = request.data.get('longitude')
+            user_timezone = request.data.get('tz') or request.data.get('timezone')
         
         temperature = None
         humidity = None
@@ -230,8 +236,8 @@ class ActividadCreateSerializer(serializers.ModelSerializer):
         actividad.pse_calculado = actividad.calcular_pse(temperature, humidity)
         actividad.save()
         
-        # Actualizar meta diaria del usuario
-        actividad.usuario.actualizar_meta_hidratacion_con_actividades()
+        if not self.context.get('skip_meta_update'):
+            actividad.usuario.actualizar_meta_hidratacion_con_actividades()
         
         # Agregar mensaje climático a la respuesta si está disponible
         if weather_message:
