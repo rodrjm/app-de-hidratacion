@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -26,6 +27,8 @@ import { getEstadisticasDiarias } from "../services/activities";
 import { updateWidgetData } from "../widgets/updateWidgetData";
 
 type CantidadMode = "recipiente" | "personalizada";
+const BEBIDAS_CACHE_KEY = "catalog:bebidas";
+const RECIPIENTES_CACHE_KEY = "catalog:recipientes";
 
 function formatTimeForInput(date: Date): string {
   const h = date.getHours();
@@ -58,6 +61,7 @@ export default function AddConsumoScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showSugerirModal, setShowSugerirModal] = useState(false);
+  const [pendingBatch, setPendingBatch] = useState<PendingConsumoForm[]>([]);
   // "Acabo de consumir" = ON por defecto: no se muestra hora; si OFF, se puede editar la hora (solo de hoy).
   const [acaboDeConsumir, setAcaboDeConsumir] = useState(true);
   const [horaConsumoStr, setHoraConsumoStr] = useState(() => {
@@ -86,6 +90,10 @@ export default function AddConsumoScreen() {
         if (cancelled) return;
         const bebidasList = bebidasRes.results || [];
         const recipList = recipientesRes.results || [];
+        await AsyncStorage.multiSet([
+          [BEBIDAS_CACHE_KEY, JSON.stringify(bebidasList)],
+          [RECIPIENTES_CACHE_KEY, JSON.stringify(recipList)],
+        ]);
         setBebidas(bebidasList);
         setRecipientes(recipList);
         if (consumoEditar) {
@@ -106,7 +114,34 @@ export default function AddConsumoScreen() {
         }
       } catch (e) {
         console.log("[AddConsumo] error cargando bebidas/recipientes", e);
-        showAlert({ title: "Error", message: "No se pudieron cargar bebidas y recipientes.", variant: "danger" });
+        if (isLikelyNetworkError(e)) {
+          try {
+            const [bebidasCacheRaw, recipientesCacheRaw] = await AsyncStorage.multiGet([
+              BEBIDAS_CACHE_KEY,
+              RECIPIENTES_CACHE_KEY,
+            ]);
+            const bebidasCache = bebidasCacheRaw[1] ? (JSON.parse(bebidasCacheRaw[1]) as Bebida[]) : [];
+            const recipientesCache = recipientesCacheRaw[1]
+              ? (JSON.parse(recipientesCacheRaw[1]) as Recipiente[])
+              : [];
+            if (bebidasCache.length > 0 && recipientesCache.length > 0) {
+              if (cancelled) return;
+              setBebidas(bebidasCache);
+              setRecipientes(recipientesCache);
+              const agua = bebidasCache.find((b) => b.es_agua) || bebidasCache[0];
+              setBebidaId((prev) => prev ?? agua?.id ?? null);
+              setRecipienteId((prev) => prev ?? recipientesCache[0]?.id ?? null);
+              return;
+            }
+          } catch (cacheError) {
+            console.log("[AddConsumo] error leyendo cache de catalogos", cacheError);
+          }
+        }
+        showAlert({
+          title: "Error",
+          message: "No se pudieron cargar bebidas y recipientes.",
+          variant: "danger",
+        });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -263,6 +298,125 @@ export default function AddConsumoScreen() {
       }
 
       showAlert({ title: "Error", message, variant: "danger" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const buildCreatePayload = (): Parameters<typeof consumosService.createConsumo>[0] | null => {
+    if (!bebidaId) return null;
+    const today = new Date();
+    return {
+      bebida: bebidaId,
+      cantidad_ml: cantidad,
+      recipiente: cantidadMode === "recipiente" && recipienteId != null ? recipienteId : null,
+      fecha_hora: acaboDeConsumir
+        ? new Date().toISOString()
+        : parseTimeToDate(today, horaConsumoStr).toISOString(),
+    };
+  };
+
+  const resetFormForNextConsumo = () => {
+    setCantidadPersonalizada(250);
+    setCantidadMode("recipiente");
+    setRecipienteId(recipientes[0]?.id ?? null);
+    setAcaboDeConsumir(true);
+    setHoraConsumoStr(formatTimeForInput(new Date()));
+  };
+
+  const handleSaveAndAddAnother = () => {
+    const err = validar();
+    if (err) {
+      showAlert({ title: "Error", message: err, variant: "danger" });
+      return;
+    }
+    if (currentUserId == null) {
+      showAlert({
+        title: "Error",
+        message: "No se pudo identificar tu usuario. Vuelve a iniciar sesión e intenta de nuevo.",
+        variant: "danger",
+      });
+      return;
+    }
+    const payload = buildCreatePayload();
+    if (!payload) return;
+    setPendingBatch((prev) => [...prev, { ...payload, userId: currentUserId }]);
+    resetFormForNextConsumo();
+  };
+
+  const handleFinalizeBatch = async () => {
+    const hasCurrentDraft = bebidaId != null;
+    if (pendingBatch.length === 0 && !hasCurrentDraft) {
+      showAlert({ title: "Error", message: "Completa al menos un consumo.", variant: "danger" });
+      return;
+    }
+    const currentPayload = hasCurrentDraft ? buildCreatePayload() : null;
+    if (hasCurrentDraft && !currentPayload) return;
+
+    if (hasCurrentDraft) {
+      const err = validar();
+      if (err) {
+        showAlert({ title: "Error", message: err, variant: "danger" });
+        return;
+      }
+    }
+    if (currentUserId == null) {
+      showAlert({
+        title: "Error",
+        message: "No se pudo identificar tu usuario. Vuelve a iniciar sesión e intenta de nuevo.",
+        variant: "danger",
+      });
+      return;
+    }
+    setSubmitting(true);
+    const allItems: PendingConsumoForm[] = [
+      ...pendingBatch,
+      ...(currentPayload ? [{ ...currentPayload, userId: currentUserId }] : []),
+    ];
+    try {
+      const net = await NetInfo.fetch();
+      if (net.isConnected === false) {
+        allItems.forEach((item) => useOfflineStore.getState().addPendingConsumo(item));
+        showAlert({
+          title: "Sin conexión",
+          message: OFFLINE_QUEUED_USER_MESSAGE,
+          variant: "success",
+        });
+        navigation.goBack();
+        return;
+      }
+      await consumosService.syncOfflineConsumos(
+        allItems.map(({ userId: _userId, ...payload }) => payload),
+      );
+      showAlert({ title: "Listo", message: "Consumos registrados exitosamente.", variant: "success" });
+      try {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, "0");
+        const d = String(today.getDate()).padStart(2, "0");
+        const todayStr = `${y}-${m}-${d}`;
+        const stats = await getEstadisticasDiarias(todayStr);
+        await updateWidgetData(
+          stats.total_hidratacion_efectiva_ml ?? 0,
+          stats.meta_ml ?? 2000,
+        );
+      } catch (e) {
+        console.log("[AddConsumo] Error actualizando widget:", e);
+      }
+      navigation.goBack();
+    } catch (e) {
+      if (isLikelyNetworkError(e)) {
+        allItems.forEach((item) => useOfflineStore.getState().addPendingConsumo(item));
+        showAlert({
+          title: "Sin conexión",
+          message: OFFLINE_QUEUED_USER_MESSAGE,
+          variant: "success",
+        });
+        navigation.goBack();
+        return;
+      }
+      const fallbackMsg = e instanceof Error ? e.message : "Error al finalizar carga.";
+      showAlert({ title: "Error", message: fallbackMsg, variant: "danger" });
     } finally {
       setSubmitting(false);
     }
@@ -463,19 +617,51 @@ export default function AddConsumoScreen() {
             </>
           )}
 
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={submitting}
-            className="bg-secondary-600 py-4 rounded-2xl items-center"
-          >
-            {submitting ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-white font-display font-bold text-[15px]">
-                Guardar consumo
-              </Text>
-            )}
-          </TouchableOpacity>
+          {!consumoEditar && pendingBatch.length > 0 && (
+            <Text className="text-xs text-neutral-600 mb-3">
+              Pendientes en carga múltiple: {pendingBatch.length}
+            </Text>
+          )}
+          {consumoEditar ? (
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={submitting}
+              className="bg-secondary-600 py-4 rounded-2xl items-center"
+            >
+              {submitting ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-display font-bold text-[15px]">
+                  Guardar consumo
+                </Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={handleSaveAndAddAnother}
+                disabled={submitting}
+                className="bg-white border border-secondary-300 py-4 rounded-2xl items-center mb-3"
+              >
+                <Text className="text-secondary-700 font-display font-bold text-[15px]">
+                  Guardar y agregar otro
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleFinalizeBatch}
+                disabled={submitting}
+                className="bg-secondary-600 py-4 rounded-2xl items-center"
+              >
+                {submitting ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-white font-display font-bold text-[15px]">
+                    Finalizar carga
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
       <SugerirBebidaModal

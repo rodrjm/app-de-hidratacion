@@ -103,7 +103,9 @@ export default function AddActivityScreen() {
     climate_adjustment?: string | null;
   } | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
+  const [isOfflineForEstimate, setIsOfflineForEstimate] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [pendingBatch, setPendingBatch] = useState<PendingActivityForm[]>([]);
 
   // Obtener ubicación al montar
   useEffect(() => {
@@ -153,6 +155,14 @@ export default function AddActivityScreen() {
         setEstimate(null);
         return;
       }
+      const net = await NetInfo.fetch();
+      if (net.isConnected === false) {
+        setEstimateLoading(false);
+        setEstimate(null);
+        setIsOfflineForEstimate(true);
+        return;
+      }
+      setIsOfflineForEstimate(false);
       setEstimateLoading(true);
       try {
         const activityDt = getActivityDateTime();
@@ -259,6 +269,135 @@ export default function AddActivityScreen() {
     } catch (e: unknown) {
       if (!actividadEditar && createPayload && currentUserId != null && isLikelyNetworkError(e)) {
         useOfflineStore.getState().addPendingActivity({ ...createPayload, userId: currentUserId });
+        showAlert({
+          title: "Sin conexión",
+          message: OFFLINE_QUEUED_USER_MESSAGE,
+          variant: "activity",
+        });
+        navigation.goBack();
+        return;
+      }
+      const msg =
+        e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "Error al guardar";
+      showAlert({ title: "Error", message: msg, variant: "danger" });
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const buildActivityPayload = (): Omit<PendingActivityForm, "userId"> => {
+    const duracion = parseInt(duracionMinutos, 10);
+    const activityDt = getActivityDateTime();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return {
+      tipo_actividad: tipo,
+      duracion_minutos: duracion,
+      intensidad,
+      fecha_hora: activityDt.toISOString(),
+      ...(location && { latitude: location.lat, longitude: location.lon }),
+      tz,
+    };
+  };
+
+  const resetFormForNextActivity = () => {
+    setDuracionMinutos("30");
+    setHoraInicioStr(formatTimeForInput(new Date()));
+    setEstimate(null);
+    setAcaboDeTerminar(false);
+  };
+
+  const handleSaveAndAddAnother = () => {
+    const duracion = parseInt(duracionMinutos, 10);
+    if (!duracion || duracion < 1 || duracion > 1440) {
+      showAlert({ title: "Error", message: "Duración debe ser entre 1 y 1440 minutos.", variant: "danger" });
+      return;
+    }
+    const activityDt = getActivityDateTime();
+    if (activityDt > new Date()) {
+      showAlert({ title: "Error", message: "La hora de inicio no puede ser futura.", variant: "danger" });
+      return;
+    }
+    if (currentUserId == null) {
+      showAlert({
+        title: "Error",
+        message: "No se pudo identificar tu usuario. Vuelve a iniciar sesión e intenta de nuevo.",
+        variant: "danger",
+      });
+      return;
+    }
+    const payload = buildActivityPayload();
+    setPendingBatch((prev) => [...prev, { ...payload, userId: currentUserId }]);
+    resetFormForNextActivity();
+  };
+
+  const handleFinalizeBatch = async () => {
+    const duracion = parseInt(duracionMinutos, 10);
+    const hasCurrentDraft = Boolean(duracionMinutos && !Number.isNaN(duracion));
+    if (pendingBatch.length === 0 && !hasCurrentDraft) {
+      showAlert({ title: "Error", message: "Completa al menos una actividad.", variant: "danger" });
+      return;
+    }
+    if (currentUserId == null) {
+      showAlert({
+        title: "Error",
+        message: "No se pudo identificar tu usuario. Vuelve a iniciar sesión e intenta de nuevo.",
+        variant: "danger",
+      });
+      return;
+    }
+    let currentItem: PendingActivityForm | null = null;
+    if (hasCurrentDraft) {
+      if (!duracion || duracion < 1 || duracion > 1440) {
+        showAlert({ title: "Error", message: "Duración debe ser entre 1 y 1440 minutos.", variant: "danger" });
+        return;
+      }
+      const activityDt = getActivityDateTime();
+      if (activityDt > new Date()) {
+        showAlert({ title: "Error", message: "La hora de inicio no puede ser futura.", variant: "danger" });
+        return;
+      }
+      currentItem = { ...buildActivityPayload(), userId: currentUserId };
+    }
+    const allItems: PendingActivityForm[] = [...pendingBatch, ...(currentItem ? [currentItem] : [])];
+    setSubmitLoading(true);
+    try {
+      const net = await NetInfo.fetch();
+      if (net.isConnected === false) {
+        allItems.forEach((item) => useOfflineStore.getState().addPendingActivity(item));
+        showAlert({
+          title: "Sin conexión",
+          message: OFFLINE_QUEUED_USER_MESSAGE,
+          variant: "activity",
+        });
+        navigation.goBack();
+        return;
+      }
+      await activitiesService.syncOfflineActivities(
+        allItems.map(({ userId: _userId, ...payload }) => payload),
+      );
+      showAlert({
+        title: "Listo",
+        message: "Actividades registradas. Tu meta de hidratación se actualizó.",
+        variant: "activity",
+      });
+      try {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, "0");
+        const d = String(today.getDate()).padStart(2, "0");
+        const todayStr = `${y}-${m}-${d}`;
+        const stats = await getEstadisticasDiarias(todayStr);
+        await updateWidgetData(
+          stats.total_hidratacion_efectiva_ml ?? 0,
+          stats.meta_ml ?? 2000,
+        );
+      } catch (e) {
+        console.log("[AddActivity] Error actualizando widget:", e);
+      }
+      navigation.goBack();
+    } catch (e) {
+      if (isLikelyNetworkError(e)) {
+        allItems.forEach((item) => useOfflineStore.getState().addPendingActivity(item));
         showAlert({
           title: "Sin conexión",
           message: OFFLINE_QUEUED_USER_MESSAGE,
@@ -406,12 +545,17 @@ export default function AddActivityScreen() {
           <Text className="text-sm font-semibold text-neutral-700 mb-1">
             Estimación de hidratación
           </Text>
+          {isOfflineForEstimate && (
+            <Text className="text-sm text-neutral-600">
+              Estimación no disponible en modo sin conexión
+            </Text>
+          )}
           {estimateLoading && (
             <View className="py-2">
               <ActivityIndicator size="small" color="#007BFF" />
             </View>
           )}
-          {!estimateLoading && estimate && (
+          {!isOfflineForEstimate && !estimateLoading && estimate && (
             <>
               <Text className="text-lg font-bold text-accent-700">
                 +{estimate.estimated_pse_ml} ml
@@ -432,24 +576,60 @@ export default function AddActivityScreen() {
               )}
             </>
           )}
-          {!estimateLoading && !estimate && duracionMinutos && parseInt(duracionMinutos, 10) > 0 && (
+          {!isOfflineForEstimate &&
+            !estimateLoading &&
+            !estimate &&
+            duracionMinutos &&
+            parseInt(duracionMinutos, 10) > 0 && (
             <Text className="text-neutral-500">Calculando...</Text>
-          )}
+            )}
         </View>
 
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={submitLoading}
-          className="bg-accent-600 py-4 rounded-2xl items-center"
-        >
-          {submitLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-white font-display font-bold text-[15px]">
-              Guardar actividad
-            </Text>
-          )}
-        </TouchableOpacity>
+        {!actividadEditar && pendingBatch.length > 0 && (
+          <Text className="text-xs text-neutral-600 mb-3">
+            Pendientes en carga múltiple: {pendingBatch.length}
+          </Text>
+        )}
+        {actividadEditar ? (
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={submitLoading}
+            className="bg-accent-600 py-4 rounded-2xl items-center"
+          >
+            {submitLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white font-display font-bold text-[15px]">
+                Guardar actividad
+              </Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity
+              onPress={handleSaveAndAddAnother}
+              disabled={submitLoading}
+              className="bg-white border border-accent-300 py-4 rounded-2xl items-center mb-3"
+            >
+              <Text className="text-accent-700 font-display font-bold text-[15px]">
+                Guardar y agregar otro
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleFinalizeBatch}
+              disabled={submitLoading}
+              className="bg-accent-600 py-4 rounded-2xl items-center"
+            >
+              {submitLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-display font-bold text-[15px]">
+                  Finalizar carga
+                </Text>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
         </ScrollView>
       </KeyboardAvoidingView>
       <SugerirActividadModal
