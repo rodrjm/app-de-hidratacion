@@ -224,10 +224,15 @@ class ActividadViewSet(viewsets.ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         child = serializer.child
         with transaction.atomic():
-            instances = [
-                child.create({**attrs, 'usuario': request.user})
-                for attrs in serializer.validated_data
-            ]
+            instances = []
+            
+            for attrs, raw_data in zip(serializer.validated_data, request.data):
+                attrs['latitude'] = raw_data.get('latitude')
+                attrs['longitude'] = raw_data.get('longitude')
+                attrs['tz'] = raw_data.get('tz')
+
+                instances.append(child.create({**attrs, 'usuario': request.user}))
+
             request.user.actualizar_meta_hidratacion_con_actividades()
         out = ActividadSerializer(
             instances,
