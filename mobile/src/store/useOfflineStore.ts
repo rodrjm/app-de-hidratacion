@@ -26,6 +26,26 @@ interface OfflineStoreState {
   removePendingActivitiesBatch: (items: PendingActivityForm[]) => void;
 }
 
+function toStableComparable(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(toStableComparable);
+  }
+  if (value && typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    return Object.keys(rec)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = toStableComparable(rec[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+}
+
+function fingerprintItem<T extends object>(item: T): string {
+  return JSON.stringify(toStableComparable(item));
+}
+
 export const useOfflineStore = create<OfflineStoreState>()(
   persist(
     (set) => ({
@@ -39,14 +59,22 @@ export const useOfflineStore = create<OfflineStoreState>()(
       clearPendingActivities: () => set({ pendingActivities: [] }),
       removePendingConsumosBatch: (items) => {
         if (items.length === 0) return;
+        const refs = new Set(items);
+        const hashes = new Set(items.map((item) => fingerprintItem(item)));
         set((s) => ({
-          pendingConsumos: s.pendingConsumos.filter((c) => !items.some((r) => r === c)),
+          pendingConsumos: s.pendingConsumos.filter(
+            (c) => !refs.has(c) && !hashes.has(fingerprintItem(c)),
+          ),
         }));
       },
       removePendingActivitiesBatch: (items) => {
         if (items.length === 0) return;
+        const refs = new Set(items);
+        const hashes = new Set(items.map((item) => fingerprintItem(item)));
         set((s) => ({
-          pendingActivities: s.pendingActivities.filter((a) => !items.some((r) => r === a)),
+          pendingActivities: s.pendingActivities.filter(
+            (a) => !refs.has(a) && !hashes.has(fingerprintItem(a)),
+          ),
         }));
       },
     }),

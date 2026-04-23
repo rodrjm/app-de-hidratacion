@@ -40,6 +40,7 @@ export function useSyncOffline(enabled: boolean, currentUserId: number | string 
       syncingRef.current = true;
       let didSync = false;
       try {
+        console.log("[useSyncOffline] Iniciando sync offline. userId=", String(uid));
         // Descartar entradas antiguas sin userId (migración suave)
         useOfflineStore.setState((s) => ({
           pendingConsumos: s.pendingConsumos.filter(
@@ -54,6 +55,11 @@ export function useSyncOffline(enabled: boolean, currentUserId: number | string 
         const snapActivities = [...useOfflineStore.getState().pendingActivities];
         const toSendConsumos = filterPendingForUser(snapConsumos, uid);
         const toSendActivities = filterPendingForUser(snapActivities, uid);
+        console.log(
+          "[useSyncOffline] Registros detectados para usuario actual:",
+          `consumos=${toSendConsumos.length}`,
+          `activities=${toSendActivities.length}`,
+        );
 
         if (toSendConsumos.length === 0 && toSendActivities.length === 0) return;
 
@@ -61,9 +67,14 @@ export function useSyncOffline(enabled: boolean, currentUserId: number | string 
           try {
             const body = toSendConsumos.map(stripConsumoForApi);
             await consumosService.syncOfflineConsumos(body);
+            console.log(
+              "[useSyncOffline] Sync consumos OK (2xx). Eliminando de cola:",
+              toSendConsumos.length,
+            );
             useOfflineStore.getState().removePendingConsumosBatch(toSendConsumos);
             didSync = true;
           } catch (e) {
+            console.log("[useSyncOffline] Sync consumos error:", e);
             console.warn("[useSyncOffline] Falló sync de consumos (la cola no se modifica):", e);
           }
         }
@@ -72,29 +83,39 @@ export function useSyncOffline(enabled: boolean, currentUserId: number | string 
           try {
             const body = toSendActivities.map(stripActivityForApi);
             await activitiesService.syncOfflineActivities(body);
+            console.log(
+              "[useSyncOffline] Sync activities OK (2xx). Eliminando de cola:",
+              toSendActivities.length,
+            );
             useOfflineStore.getState().removePendingActivitiesBatch(toSendActivities);
             didSync = true;
           } catch (e) {
+            console.log("[useSyncOffline] Sync activities error:", e);
             console.warn("[useSyncOffline] Falló sync de actividades (la cola no se modifica):", e);
           }
         }
 
-        if (didSync) {
-          DeviceEventEmitter.emit("offlineSyncComplete");
-        }
       } finally {
+        if (didSync) {
+          console.log("[useSyncOffline] Emitiendo offlineSyncComplete");
+        } else {
+          console.log("[useSyncOffline] Emitiendo offlineSyncComplete (sin cambios enviados)");
+        }
+        DeviceEventEmitter.emit("offlineSyncComplete");
         syncingRef.current = false;
       }
     };
 
     const unsubscribe = NetInfo.addEventListener((state) => {
       if (state.isConnected === true) {
+        console.log("[useSyncOffline] NetInfo: ONLINE detectado por listener.");
         void runSync();
       }
     });
 
     void NetInfo.fetch().then((state) => {
       if (state.isConnected === true) {
+        console.log("[useSyncOffline] NetInfo.fetch inicial: ONLINE.");
         void runSync();
       }
     });

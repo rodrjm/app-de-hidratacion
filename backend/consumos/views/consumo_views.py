@@ -163,7 +163,8 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
             many=True,
             context=self.get_serializer_context(),
         )
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         child = serializer.child
         with transaction.atomic():
             instances = [
