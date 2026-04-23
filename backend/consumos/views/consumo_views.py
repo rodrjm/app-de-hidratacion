@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.db import transaction
 from datetime import timedelta, datetime
 from zoneinfo import ZoneInfo
 
@@ -139,6 +140,43 @@ class ConsumoViewSet(BaseViewSet, StatsMixin, FilterMixin):
         Asigna el usuario autenticado al crear un consumo.
         """
         serializer.save(usuario=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='bulk')
+    def bulk(self, request):
+        """
+        Crea varios consumos en una sola petición (sincronización offline).
+        Body: lista de objetos con el mismo formato que POST /consumos/.
+        """
+        if not isinstance(request.data, list):
+            return Response(
+                {'error': 'Se espera un array de consumos.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        for item in request.data:
+            if not isinstance(item, dict):
+                return Response(
+                    {'error': 'Cada elemento debe ser un objeto.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        serializer = ConsumoCreateSerializer(
+            data=request.data,
+            many=True,
+            context=self.get_serializer_context(),
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        child = serializer.child
+        with transaction.atomic():
+            instances = [
+                child.create({**attrs, 'usuario': request.user})
+                for attrs in serializer.validated_data
+            ]
+        out = ConsumoSerializer(
+            instances,
+            many=True,
+            context=self.get_serializer_context(),
+        )
+        return Response(out.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         """

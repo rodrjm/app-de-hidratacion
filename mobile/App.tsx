@@ -34,6 +34,7 @@ import OnboardingScreen from "./src/screens/OnboardingScreen";
 import Toast from "react-native-toast-message";
 import MobileAdBanner from "./src/components/MobileAdBanner";
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import OfflineSyncListener from "./src/components/OfflineSyncListener";
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -307,6 +308,7 @@ export default function App() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <AuthProvider>
+          <OfflineSyncListener />
           <AppAlertProvider>
             <NavigationContainer linking={linking}>
               <StatusBar style="dark" />

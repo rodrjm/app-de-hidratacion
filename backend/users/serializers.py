@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.db import transaction
+from datetime import timedelta
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
@@ -168,6 +169,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         # Intervalo de notificaciones por defecto
         validated_data.setdefault('intervalo_notificaciones', 240)
+
+        # Regalo de bienvenida: 3 meses de Premium para nuevos usuarios
+        validated_data['es_premium'] = True
+        validated_data['plan_type'] = 'welcome_gift'
+        validated_data['auto_renewal'] = False
+        validated_data['subscription_end_date'] = timezone.now().date() + timedelta(days=90)
 
         # Crear el usuario
         user = User.objects.create_user(

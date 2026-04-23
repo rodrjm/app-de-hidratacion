@@ -41,6 +41,7 @@ class User(AbstractUser):
             ('monthly', 'Mensual'),
             ('annual', 'Anual'),
             ('lifetime', 'De por vida'),
+            ('welcome_gift', 'Regalo de Bienvenida'),
         ],
         null=True,
         blank=True,

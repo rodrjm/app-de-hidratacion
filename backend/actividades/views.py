@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Q
 from datetime import date, timedelta, datetime as dt
 from .models import Actividad
@@ -46,7 +47,7 @@ class ActividadViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Crea una actividad y actualiza la meta diaria."""
-        actividad = serializer.save()
+        actividad = serializer.save(usuario=self.request.user)
         # La actualización de meta se hace en el serializer
     
     def perform_update(self, serializer):
@@ -193,4 +194,45 @@ class ActividadViewSet(viewsets.ModelViewSet):
             'weather_message': weather_message,
             'climate_adjustment': climate_adjustment,
         })
+
+    @action(detail=False, methods=['post'], url_path='bulk')
+    def bulk(self, request):
+        """
+        Crea varias actividades en una sola petición (sincronización offline).
+        Body: lista de objetos con el mismo formato que POST /actividades/.
+        """
+        if not isinstance(request.data, list):
+            return Response(
+                {'error': 'Se espera un array de actividades.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        for item in request.data:
+            if not isinstance(item, dict):
+                return Response(
+                    {'error': 'Cada elemento debe ser un objeto.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        serializer = ActividadCreateSerializer(
+            data=request.data,
+            many=True,
+            context={
+                **self.get_serializer_context(),
+                'skip_meta_update': True,
+            },
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        child = serializer.child
+        with transaction.atomic():
+            instances = [
+                child.create({**attrs, 'usuario': request.user})
+                for attrs in serializer.validated_data
+            ]
+            request.user.actualizar_meta_hidratacion_con_actividades()
+        out = ActividadSerializer(
+            instances,
+            many=True,
+            context=self.get_serializer_context(),
+        )
+        return Response(out.data, status=status.HTTP_201_CREATED)
 

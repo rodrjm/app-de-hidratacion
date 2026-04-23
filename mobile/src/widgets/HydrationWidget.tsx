@@ -1,19 +1,19 @@
 import React from "react";
 import { FlexWidget, TextWidget } from "react-native-android-widget";
 
-// Paleta de colores EXACTA alineada con tailwind.config.js de la app
+// Paleta de colores EXACTA alineada con tailwind.config.js y DashboardScreen de la app
 const COLORS = {
   background: "#F3F7F8", // primary-50
-  border: "#E5E7EB", // neutral-200
+  border: "#E5E7EB", // neutral-200 (Gris de fondo de la barra vacía)
   textPrimary: "#1f2937", // neutral-800
   label: "#737373", // neutral-500
-  // Estados de progreso
-  startAccent: "#0EA5E9", // accent-500 (Azul Ciel)
-  middleSecondary: "#059669", // secondary-600 (Verde Esmeralda)
-  doneChart: "#10b981", // chart-500 (Verde Menta)
+  // Estados de progreso (Barra)
+  startAccent: "#0EA5E9", // accent-500 (Cian / Azul para < 80%)
+  middleSecondary: "#059669", // secondary-600 (Verde Fuerte para >= 80% y texto Consumido)
+  doneChart: "#10b981", // chart-500 (Verde Claro / Menta para 100%)
   // Otros
   restanteAmber: "#d97706", // amber-600
-  buttonActivity: "#007BFF", // Mantenemos acento original para contraste
+  buttonActivity: "#007BFF",
 } as const;
 
 interface HydrationWidgetProps {
@@ -27,29 +27,26 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
     meta > 0 ? Math.min(100, Math.round((consumido / meta) * 100)) : 0;
   const completada = porcentaje >= 100;
 
-  // Lógica dinámica de textos y colores (portada de HydrationProgress.tsx)
+  // Lógica dinámica para la BARRA alineada exactamente con DashboardScreen.tsx
   const getDynamicStyle = () => {
     if (completada) {
       return {
         message: "¡Excelente! Has alcanzado tu meta de hidratación 🎉",
-        color: COLORS.doneChart,
+        color: COLORS.doneChart, // >= 100%: Verde Claro
       };
     }
     if (porcentaje >= 80) {
       return {
         message: "¡Casi lo logras! Solo un poco más 💪",
-        color: COLORS.middleSecondary,
+        color: COLORS.middleSecondary, // >= 80% y < 100%: Verde Fuerte
       };
     }
-    if (porcentaje >= 50) {
-      return {
-        message: "Vas por buen camino, sigue así! 🌟",
-        color: COLORS.startAccent, // Azul en rango medio
-      };
-    }
+    // < 80%: Cian / Azul
     return {
-      message: "¡Vamos! Tu cuerpo necesita hidratación 💧",
-      color: COLORS.startAccent, // Azul al inicio
+      message: porcentaje >= 50
+        ? "Vas por buen camino, sigue así! 🌟"
+        : "¡Vamos! Tu cuerpo necesita hidratación 💧",
+      color: COLORS.startAccent,
     };
   };
 
@@ -59,22 +56,22 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
     <FlexWidget
       style={{
         width: "match_parent",
-        height: "wrap_content", // CLAVE: wrap_content para que se compacte verticalmente en 2x2
+        height: "wrap_content",
         flexDirection: "column",
-        padding: 8, // Compactamos padding exterior
+        padding: 8,
         backgroundColor: COLORS.background,
         borderRadius: 20,
         justifyContent: "flex-start",
       }}
     >
-      {/* 1. Cabecera - Compactada */}
+      {/* 1. Cabecera */}
       <FlexWidget
         style={{
           width: "match_parent",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 4,
+          marginBottom: 6,
         }}
       >
         <TextWidget
@@ -82,9 +79,9 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           style={{ fontSize: 12, fontWeight: "700", color: COLORS.textPrimary }}
         />
         <TextWidget
-          text={dynamic.message} // Texto dinámico
+          text={dynamic.message}
           style={{
-            fontSize: 8, // Achicado para asegurar una sola fila
+            fontSize: 8,
             color: COLORS.label,
             marginTop: 1,
             textAlign: "center",
@@ -92,12 +89,12 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         />
       </FlexWidget>
 
-      {/* 2. Barra de progreso - Compactada y Dinámica */}
+      {/* 2. Barra de progreso */}
       <FlexWidget
         style={{
           width: "match_parent",
           flexDirection: "column",
-          marginBottom: 6,
+          marginBottom: 8,
         }}
       >
         <FlexWidget
@@ -119,6 +116,7 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           />
         </FlexWidget>
 
+        {/* Fondo de la barra (Gris neutral-200) */}
         <FlexWidget
           style={{
             width: "match_parent",
@@ -128,18 +126,19 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
             overflow: "hidden",
           }}
         >
+          {/* Relleno de la barra (Color dinámico) */}
           <FlexWidget
             style={{
               height: 6,
               borderRadius: 3,
-              backgroundColor: dynamic.color, // Color dinámico de la barra
+              backgroundColor: dynamic.color,
               width: `${porcentaje}%`,
             }}
           />
         </FlexWidget>
       </FlexWidget>
 
-      {/* 3. Tarjeta interna de estadísticas - Compactada y Dinámica */}
+      {/* 3. Tarjeta interna de estadísticas */}
       <FlexWidget
         style={{
           width: "match_parent",
@@ -151,14 +150,14 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
           borderWidth: 1,
           borderColor: COLORS.border,
           borderRadius: 14,
-          marginBottom: 6,
+          marginBottom: 8,
         }}
       >
         {/* Columna Consumido */}
         <FlexWidget style={{ alignItems: "center", flex: 1 }}>
           <TextWidget
             text={`${consumido} ml`}
-            style={{ fontSize: 9, fontWeight: "700", color: dynamic.color }} // Color dinámico en el número
+            style={{ fontSize: 9, fontWeight: "700", color: COLORS.middleSecondary }}
           />
           <TextWidget
             text="Consumido"
@@ -167,11 +166,7 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         </FlexWidget>
 
         <FlexWidget
-          style={{
-            width: 1,
-            height: 20,
-            backgroundColor: COLORS.border,
-          }}
+          style={{ width: 1, height: 20, backgroundColor: COLORS.border }}
         />
 
         {/* Columna Meta diaria */}
@@ -187,11 +182,7 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         </FlexWidget>
 
         <FlexWidget
-          style={{
-            width: 1,
-            height: 20,
-            backgroundColor: COLORS.border,
-          }}
+          style={{ width: 1, height: 20, backgroundColor: COLORS.border }}
         />
 
         {/* Columna Restante */}
@@ -207,7 +198,7 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
         </FlexWidget>
       </FlexWidget>
 
-      {/* 4. Botones de acción flotantes - Compactados y Centrados */}
+      {/* 4. Botones de acción flotantes */}
       <FlexWidget
         style={{
           width: "match_parent",
@@ -219,13 +210,13 @@ export function HydrationWidget({ consumido, meta }: HydrationWidgetProps) {
       >
         <FlexWidget
           style={{
-            width: 32, // Botones más chicos
+            width: 32,
             height: 32,
             borderRadius: 16,
-            backgroundColor: COLORS.middleSecondary, // Usamos Esmeralda para agua
+            backgroundColor: COLORS.middleSecondary,
             alignItems: "center",
             justifyContent: "center",
-            marginRight: 24, // Separación explícita fija
+            marginRight: 24,
           }}
           clickAction="OPEN_URI"
           clickActionData={{ uri: "dosisvital://add-water" }}

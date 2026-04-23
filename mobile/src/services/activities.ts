@@ -87,6 +87,18 @@ export const activitiesService = {
     return data;
   },
 
+  async syncOfflineActivities(
+    activities: (ActividadForm & { latitude?: number; longitude?: number; tz?: string })[],
+  ): Promise<Actividad[]> {
+    const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const body = activities.map((a) => ({
+      ...a,
+      tz: a.tz ?? defaultTz,
+    }));
+    const { data } = await api.post<Actividad[]>("/actividades/bulk/", body);
+    return data;
+  },
+
   async update(id: number, payload: Partial<ActividadForm> & { latitude?: number; longitude?: number; tz?: string }): Promise<Actividad> {
     const body = {
       ...payload,

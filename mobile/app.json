@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dosis Vital",
     "slug": "mobile",
-    "version": "1.1.13",
+    "version": "1.1.18",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,7 @@
       "usesCleartextTraffic": true,
       "permissions": ["RECEIVE_BOOT_COMPLETED"],
       "package": "com.dosisvital.app",
-      "versionCode": 24
+      "versionCode": 30
     },
     "scheme": "dosisvital",
     "plugins": [
@@ -58,12 +58,10 @@
               "label": "Dosis Vital – Hidratación",
               "description": "Consulta tu progreso de hidratación diaria y accede rápido al registro.",
               "minWidth": "110dp",
-              "minHeight": "110dp",
+              "minHeight": "90dp",
               "targetCellWidth": 2,
               "targetCellHeight": 2,
-              "maxResizeWidth": "250dp",
-              "maxResizeHeight": "110dp",
-              "resizeMode": "horizontal|vertical",
+              "resizeMode": "horizontal",
               "updatePeriodMillis": 1800000
             }
           ]

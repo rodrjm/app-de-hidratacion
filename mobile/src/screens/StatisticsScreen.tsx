@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAppAlert } from "../context/AppAlertContext";
 import HeaderAppLogo from "../components/HeaderAppLogo";
+import { isLikelyNetworkError, showOfflineModeToast } from "../utils/networkErrors";
 
 type Period = "daily" | "weekly" | "monthly" | "annual";
 
@@ -94,7 +95,9 @@ export default function StatisticsScreen() {
             setTendencias(trends);
           } catch (e) {
             console.log("[StatisticsScreen] Error cargando tendencias", e);
-            setTendencias(null);
+            if (!isLikelyNetworkError(e)) {
+              setTendencias(null);
+            }
           } finally {
             setLoadingTendencias(false);
           }
@@ -103,7 +106,11 @@ export default function StatisticsScreen() {
         }
       } catch (e) {
         console.log("[StatisticsScreen] Error cargando consumos", e);
-        setConsumos([]);
+        if (isLikelyNetworkError(e)) {
+          showOfflineModeToast();
+        } else {
+          setConsumos([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -135,7 +142,9 @@ export default function StatisticsScreen() {
         })
         .catch((e) => {
           console.log("[StatisticsScreen] Error cargando insights", e);
-          setInsights(null);
+          if (!isLikelyNetworkError(e)) {
+            setInsights(null);
+          }
         })
         .finally(() => {
           setLoadingInsights(false);

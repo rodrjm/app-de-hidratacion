@@ -1,5 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  TouchableOpacity,
+  DeviceEventEmitter,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +22,8 @@ import MobileAdBanner from "../components/MobileAdBanner";
 import HeaderAppLogo from "../components/HeaderAppLogo";
 import { updateWidgetData } from "../widgets/updateWidgetData";
 import type { EstadisticasDiarias, Actividad, Consumo } from "../types";
+import { isLikelyNetworkError, showOfflineModeToast } from "../utils/networkErrors";
+import { useOfflineStore } from "../store/useOfflineStore";
 
 function formatLocalDate(d: Date): string {
   const y = d.getFullYear();
@@ -34,6 +44,17 @@ export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const { user, token, refreshUser } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
+  const currentUserId = user?.id;
+  const pendingConsumos = useOfflineStore((state) =>
+    currentUserId == null
+      ? 0
+      : state.pendingConsumos.filter((c) => String(c.userId) === String(currentUserId)).length,
+  );
+  const pendingActivities = useOfflineStore((state) =>
+    currentUserId == null
+      ? 0
+      : state.pendingActivities.filter((a) => String(a.userId) === String(currentUserId)).length,
+  );
   const [stats, setStats] = useState<EstadisticasDiarias | null>(null);
   const [actividadesHoy, setActividadesHoy] = useState<Actividad[]>([]);
   const [consumos, setConsumos] = useState<Consumo[]>([]);
@@ -64,9 +85,13 @@ export default function DashboardScreen() {
       } catch (e) {
         console.log("[Dashboard] Error actualizando widget:", e);
       }
-    } catch {
-      setStats(null);
-      setActividadesHoy([]);
+    } catch (e) {
+      if (isLikelyNetworkError(e)) {
+        showOfflineModeToast();
+      } else {
+        setStats(null);
+        setActividadesHoy([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -95,12 +120,30 @@ export default function DashboardScreen() {
     }, [load]),
   );
 
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener("offlineSyncComplete", () => {
+      void load();
+    });
+    return () => sub.remove();
+  }, [load]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     load();
   }, [load]);
 
   const nombre = user?.first_name || user?.username || "";
+  const totalPendingOffline = pendingConsumos + pendingActivities;
+  const offlineBreakdownLabel = useMemo(() => {
+    if (pendingConsumos > 0 && pendingActivities > 0) {
+      return `${pendingConsumos} consumo${pendingConsumos !== 1 ? "s" : ""} y ${pendingActivities} actividad${pendingActivities !== 1 ? "es" : ""}`;
+    }
+    if (pendingConsumos > 0) {
+      return `${pendingConsumos} consumo${pendingConsumos !== 1 ? "s" : ""}`;
+    }
+    return `${pendingActivities} actividad${pendingActivities !== 1 ? "es" : ""}`;
+  }, [pendingConsumos, pendingActivities]);
+
   const totalMl = stats?.total_hidratacion_efectiva_ml ?? 0;
   const metaMl = stats?.meta_ml ?? 0;
   const progreso = Math.min(100, stats?.progreso_porcentaje ?? 0);
@@ -222,6 +265,26 @@ export default function DashboardScreen() {
           <HeaderAppLogo />
         </View>
 
+        {totalPendingOffline > 0 && (
+          <View
+            className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 mb-4 flex-row items-start shadow-sm"
+            accessible
+            accessibilityLabel={`Registros pendientes de sincronizar: ${totalPendingOffline}. ${offlineBreakdownLabel}`}
+            accessibilityLiveRegion="polite"
+          >
+            <View className="mt-0.5 mr-3">
+              <Ionicons name="time-outline" size={22} color="#b45309" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-display font-semibold text-amber-950 leading-5">
+                ⏳ Tienes {totalPendingOffline}{" "}
+                {totalPendingOffline === 1 ? "registro guardado" : "registros guardados"} localmente (
+                {offlineBreakdownLabel}). Se sincronizarán al recuperar la conexión.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Progreso de hidratación mejorado */}
         <View className="bg-white rounded-2xl p-5 mb-4 shadow-card border border-neutral-200">
           <View className="items-center mb-4">
@@ -331,7 +394,7 @@ export default function DashboardScreen() {
                   <View className="flex-row items-center">
                     <Ionicons name="water-outline" size={20} color="#FFFFFF" />
                     <Text className="text-white font-display font-bold text-sm ml-2">
-                      Registrar Consumo
+                      Registrar consumo
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -342,7 +405,7 @@ export default function DashboardScreen() {
                   <View className="flex-row items-center">
                     <Ionicons name="walk-outline" size={20} color="#FFFFFF" />
                     <Text className="text-white font-display font-bold text-sm ml-2">
-                      Registrar Actividad
+                      Registrar actividad
                     </Text>
                   </View>
                 </TouchableOpacity>
