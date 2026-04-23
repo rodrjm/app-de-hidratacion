@@ -56,11 +56,20 @@ class ActividadSerializer(serializers.ModelSerializer):
         # El usuario se asigna automáticamente desde el request
         validated_data['usuario'] = self.context['request'].user
         
-        # Obtener coordenadas y zona horaria para datos climáticos
-        request = self.context['request']
-        latitude = request.data.get('latitude')
-        longitude = request.data.get('longitude')
-        user_timezone = request.data.get('tz') or request.data.get('timezone')
+        # 1. Usamos pop() para rescatar las variables inyectadas desde la vista bulk
+        latitude = validated_data.pop('latitude', None)
+        longitude = validated_data.pop('longitude', None)
+        user_timezone = validated_data.pop('tz', None)
+        
+        # 2. Fallback por si la petición entró por el POST individual (request.data es un dict)
+        request = self.context.get('request')
+        if request and isinstance(request.data, dict):
+            if latitude is None:
+                latitude = request.data.get('latitude')
+            if longitude is None:
+                longitude = request.data.get('longitude')
+            if user_timezone is None:
+                user_timezone = request.data.get('tz') or request.data.get('timezone')
         
         temperature = None
         humidity = None
@@ -191,17 +200,20 @@ class ActividadCreateSerializer(serializers.ModelSerializer):
         if 'fecha_hora' not in validated_data:
             validated_data['fecha_hora'] = timezone.now()
         
-        # Obtener coordenadas y zona horaria (por ítem en bulk via activity_request_data)
-        request = self.context['request']
-        item_payload = self.context.get('activity_request_data')
-        if item_payload is not None:
-            latitude = item_payload.get('latitude')
-            longitude = item_payload.get('longitude')
-            user_timezone = item_payload.get('tz') or item_payload.get('timezone')
-        else:
-            latitude = request.data.get('latitude')
-            longitude = request.data.get('longitude')
-            user_timezone = request.data.get('tz') or request.data.get('timezone')
+        # 1. Usamos pop() para rescatar las variables inyectadas desde la vista bulk
+        latitude = validated_data.pop('latitude', None)
+        longitude = validated_data.pop('longitude', None)
+        user_timezone = validated_data.pop('tz', None)
+        
+        # 2. Fallback por si la petición entró por el POST individual (request.data es un dict)
+        request = self.context.get('request')
+        if request and isinstance(request.data, dict):
+            if latitude is None:
+                latitude = request.data.get('latitude')
+            if longitude is None:
+                longitude = request.data.get('longitude')
+            if user_timezone is None:
+                user_timezone = request.data.get('tz') or request.data.get('timezone')
         
         temperature = None
         humidity = None
